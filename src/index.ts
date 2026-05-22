@@ -6,6 +6,12 @@ import { initializeSweph, calculateNatalChart } from './engine/sweph-engine';
 const app = new Hono();
 
 const API_KEY = process.env.API_KEY;
+const PORT = Number(process.env.PORT) || 3001;
+
+console.log('=== Astro Calc Service Starting ===');
+console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+console.log(`Port: ${PORT}`);
+console.log(`API Key configured: ${API_KEY ? 'Yes' : 'No'}`);
 
 function validateApiKey(authHeader: string | undefined): boolean {
   if (!API_KEY) {
@@ -20,7 +26,11 @@ function validateApiKey(authHeader: string | undefined): boolean {
 app.use('*', cors());
 
 app.get('/health', (c) => {
-  return c.json({ status: 'ok', timestamp: new Date().toISOString() });
+  return c.json({ 
+    status: 'ok', 
+    timestamp: new Date().toISOString(),
+    version: '1.0.0'
+  });
 });
 
 app.post('/calculate', async (c) => {
@@ -77,7 +87,7 @@ app.post('/api/v1/natal-chart', async (c) => {
       midheaven: result.midheaven,
     });
   } catch (error) {
-    console.error('Calculation error:', error);
+    console.error('Natal chart error:', error);
     return c.json({ error: 'Internal server error' }, 500);
   }
 });
@@ -123,14 +133,52 @@ app.post('/api/v1/daily-forecast', async (c) => {
   }
 });
 
-const PORT = process.env.PORT || 3001;
+function initializeWithTimeout(timeoutMs: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const timeout = setTimeout(() => {
+      console.log('Swiss Ephemeris initialization timeout, using built-in fallback');
+      resolve(false);
+    }, timeoutMs);
 
-initializeSweph();
+    try {
+      console.log('Initializing Swiss Ephemeris...');
+      const result = initializeSweph();
+      clearTimeout(timeout);
+      console.log(`Swiss Ephemeris initialized: ${result ? 'Success' : 'Failed (using built-in)'}`);
+      resolve(result);
+    } catch (error) {
+      clearTimeout(timeout);
+      console.log(`Swiss Ephemeris initialization failed: ${error}`);
+      resolve(false);
+    }
+  });
+}
 
-console.log(`Astro Calc Service running on port ${PORT}`);
-console.log(`API Key protection: ${API_KEY ? 'enabled' : 'disabled (not configured)'}`);
+async function startServer() {
+  try {
+    // 启动服务器（先不等待初始化完成）
+    console.log(`Starting server on port ${PORT}...`);
+    
+    serve({
+      fetch: app.fetch,
+      port: PORT,
+    });
 
-serve({
-  fetch: app.fetch,
-  port: Number(PORT),
-});
+    console.log('Server started, initializing Swiss Ephemeris in background...');
+    
+    // 后台初始化 Swiss Ephemeris（带超时）
+    setTimeout(async () => {
+      await initializeWithTimeout(10000);
+      console.log('=== Astro Calc Service Ready ===');
+      console.log(`Service ready at http://localhost:${PORT}`);
+    }, 100);
+
+    console.log('Server is running, health check available');
+    
+  } catch (error) {
+    console.error('Failed to start server:', error);
+    process.exit(1);
+  }
+}
+
+startServer();
