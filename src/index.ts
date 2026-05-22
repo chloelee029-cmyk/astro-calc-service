@@ -82,6 +82,47 @@ app.post('/api/v1/natal-chart', async (c) => {
   }
 });
 
+app.post('/api/v1/daily-forecast', async (c) => {
+  const authHeader = c.req.header('Authorization');
+  if (!validateApiKey(authHeader)) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+
+  try {
+    const body = await c.req.json();
+
+    if (!body.birthTimeISO || body.lat === undefined || body.lng === undefined) {
+      return c.json({ error: 'Missing required parameters' }, 400);
+    }
+
+    const result = calculateNatalChart({
+      birthTimeISO: body.birthTimeISO,
+      lat: Number(body.lat),
+      lng: Number(body.lng),
+      timezone: body.timezone || 'UTC',
+    });
+
+    const today = new Date();
+    const dailyEnergy = {
+      emotional: Math.floor(Math.random() * 40) + 60,
+      career: Math.floor(Math.random() * 40) + 60,
+      fortune: Math.floor(Math.random() * 40) + 60,
+    };
+
+    return c.json({
+      planets: result.planets,
+      houses: result.houses,
+      ascendant: result.ascendant,
+      midheaven: result.midheaven,
+      energy: dailyEnergy,
+      date: today.toISOString().split('T')[0],
+    });
+  } catch (error) {
+    console.error('Daily forecast error:', error);
+    return c.json({ error: 'Internal server error' }, 500);
+  }
+});
+
 const PORT = process.env.PORT || 3001;
 
 initializeSweph();

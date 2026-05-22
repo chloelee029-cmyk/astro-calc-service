@@ -1,6 +1,4 @@
-FROM node:22-alpine
-
-RUN apk add --no-cache python3 make g++
+FROM node:22-slim
 
 WORKDIR /app
 
@@ -9,7 +7,7 @@ RUN npm install
 
 COPY . .
 
-RUN chmod +x node_modules/.bin/tsc && npm run build
+RUN npm run build
 
 EXPOSE 3000
 
