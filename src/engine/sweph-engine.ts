@@ -1,7 +1,4 @@
 import * as sweph from 'sweph';
-import { resolve } from 'path';
-
-const EPHE_PATH = resolve(process.cwd(), 'ephe');
 
 const PLANET_CODES: Record<string, number> = {
   Sun: sweph.constants.SE_SUN,
@@ -32,25 +29,24 @@ function getCacheKey(input: { birthTimeISO: string; lat: number; lng: number }):
 
 export function initializeSweph(): boolean {
   try {
-    sweph.set_ephe_path(EPHE_PATH);
-    console.log('Swiss Ephemeris ephe path:', EPHE_PATH);
-
+    console.log('Initializing Swiss Ephemeris with built-in calculations...');
+    
     const testJd = sweph.julday(new Date().getFullYear(), new Date().getMonth() + 1, new Date().getDate(), 12, sweph.constants.SE_GREG_CAL);
     const testResult = sweph.calc_ut(testJd, sweph.constants.SE_SUN, sweph.constants.SEFLG_SWIEPH | sweph.constants.SEFLG_SPEED);
 
     if (testResult && testResult.data && testResult.data.length > 0) {
       initialized = true;
-      console.log('Swiss Ephemeris initialized successfully (using external data files)');
+      console.log('Swiss Ephemeris initialized successfully with built-in calculations');
     } else {
-      console.log('Swiss Ephemeris initialized with built-in ephemeris');
+      console.log('Swiss Ephemeris initialized but test calculation returned empty result');
       initialized = true;
     }
 
     return true;
   } catch (error) {
-    console.log(`Sweph initialization failed, using built-in ephemeris: ${error}`);
-    initialized = true;
-    return true;
+    console.error(`Sweph initialization failed: ${error}`);
+    initialized = false;
+    return false;
   }
 }
 
