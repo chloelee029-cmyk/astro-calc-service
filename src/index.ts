@@ -214,10 +214,12 @@ const MOON_PHASES = [
 const app = new Hono();
 
 const API_KEY = process.env.API_KEY;
-const PORT = Number(process.env.PORT) || 3001;
+const PORT = Number(process.env.PORT) || 3000;
+const HOST = process.env.HOST || '0.0.0.0';
 
 console.log('=== Astro Calc Service Starting ===');
 console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+console.log(`Host: ${HOST}`);
 console.log(`Port: ${PORT}`);
 console.log(`API Key configured: ${API_KEY ? 'Yes' : 'No'}`);
 
@@ -1029,6 +1031,7 @@ async function startServer() {
     
     serve({
       fetch: app.fetch,
+      hostname: HOST,
       port: PORT,
     });
 
@@ -1038,7 +1041,7 @@ async function startServer() {
     setTimeout(async () => {
       await initializeWithTimeout(10000);
       console.log('=== Astro Calc Service Ready ===');
-      console.log(`Service ready at http://localhost:${PORT}`);
+      console.log(`Service ready at http://${HOST}:${PORT}`);
     }, 100);
 
     console.log('Server is running, health check available');
