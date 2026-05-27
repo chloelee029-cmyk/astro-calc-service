@@ -1,0 +1,236 @@
+/**
+ * ============================================
+ * 占星计算服务 - 类型定义
+ * ============================================
+ * 定义所有占星计算相关的数据类型
+ */
+
+/**
+ * 行星名称类型
+ */
+export type PlanetName =
+  | 'Sun'
+  | 'Moon'
+  | 'Mercury'
+  | 'Venus'
+  | 'Mars'
+  | 'Jupiter'
+  | 'Saturn'
+  | 'Uranus'
+  | 'Neptune'
+  | 'Pluto';
+
+/**
+ * 星座元素类型
+ */
+export type ZodiacElement = 'Fire' | 'Earth' | 'Air' | 'Water';
+
+/**
+ * 星座模式类型
+ */
+export type ZodiacModality = 'Cardinal' | 'Fixed' | 'Mutable';
+
+/**
+ * 星象相位类型
+ */
+export type AspectType = 'Conjunction' | 'Sextile' | 'Square' | 'Trine' | 'Opposition';
+
+/**
+ * 行星位置信息
+ */
+export type PlanetPosition = {
+  planet: PlanetName;     // 行星名称
+  longitude: number;      // 黄经（0-360度）
+  degree: number;         // 星座内度数（0-30度）
+  sign: string;           // 所在星座名称
+  signIndex: number;      // 星座索引（0-11）
+  house: number;          // 所在宫位（1-12）
+  speed: number;          // 运行速度
+  retrograde: boolean;    // 是否逆行
+};
+
+/**
+ * 本命盘响应类型
+ */
+export type NatalChartResponse = {
+  planets: PlanetPosition[];  // 行星位置列表
+  houses: {
+    system: 'P';             // 宫位系统（P = Placidus）
+    cusps: number[];         // 12宫位宫头位置
+    ascendant: number;       // 上升点
+    ascendantSign: string;   // 上升星座
+    midheaven: number;       // 中天（MC）
+  };
+  metadata: {
+    elementDistribution: Record<ZodiacElement, number>;    // 元素分布统计
+    modalityDistribution: Record<ZodiacModality, number>;  // 模式分布统计
+  };
+};
+
+/**
+ * 风险预警类型
+ */
+export type RiskAlert = {
+  id: string;                           // 预警唯一标识
+  type: 'retrograde' | 'hard_aspect' | 'station';  // 预警类型
+  severity: 'low' | 'medium' | 'high';  // 严重程度
+  planet?: PlanetName;                  // 涉及行星
+  title: string;                        // 预警标题
+  description: string;                  // 预警描述
+  advice: string;                       // 建议行动
+  startDate?: string;                   // 开始日期（ISO格式）
+  endDate?: string;                     // 结束日期（ISO格式）
+};
+
+/**
+ * 能量指数类型（四维）
+ */
+export type EnergyLevels = {
+  luck: number;           // 运气指数（0-100）
+  love: number;           // 爱情指数（0-100）
+  career: number;         // 事业指数（0-100）
+  intuition: number;      // 直觉指数（0-100）
+};
+
+/**
+ * 每日运势响应类型
+ */
+export type DailyForecastResponse = {
+  updatedAt: string;                    // 更新时间（ISO格式）
+  energies: EnergyLevels;               // 四维能量指数
+  moonPhase: {
+    name: string;                       // 月相名称
+    angle: number;                      // 月相角度
+  };
+  opening: string;                      // 今日开场描述
+  aspects: Array<{                     // 活跃的星象相位列表
+    title: string;
+    plainLanguage: string;
+    category: 'luck' | 'love' | 'career' | 'intuition';
+    type: AspectType;
+    orb: number;
+    score: number;
+  }>;
+  retrogrades: PlanetName[];            // 逆行行星列表
+  alerts: RiskAlert[];                  // 风险预警列表
+  radar: Array<{ axis: string; value: number }>;  // 综合能力雷达图数据
+  horoscope: Array<{                   // 运势解读列表
+    title: string;
+    content: string;
+    category: 'internal' | 'material' | 'relational';
+  }>;
+};
+
+/**
+ * 每周运势响应类型
+ */
+export type WeeklyForecastResponse = {
+  updatedAt: string;
+  weekStart: string;                    // 周起始日期（YYYY-MM-DD）
+  weekEnd: string;                      // 周结束日期（YYYY-MM-DD）
+  daily: DailyForecastResponse[];       // 每日运势列表
+  summary: {
+    energies: EnergyLevels;             // 四维能量指数
+    keyTheme: string;                   // 本周主题
+    alerts: RiskAlert[];                // 本周风险预警
+  };
+};
+
+/**
+ * 每月运势响应类型
+ */
+export type MonthlyForecastResponse = {
+  updatedAt: string;
+  month: string;                        // 月份（YYYY-MM格式）
+  weeks: WeeklyForecastResponse[];      // 每周运势列表
+  summary: {
+    energies: EnergyLevels;             // 四维能量指数
+    keyTheme: string;                   // 本月主题
+    alerts: RiskAlert[];                // 本月风险预警
+  };
+};
+
+/**
+ * 合盘分析响应类型
+ */
+export type SynastryResponse = {
+  updatedAt: string;
+  overlays: {
+    aToB: Array<{ planet: PlanetName; fallsIntoHouse: number }>;  // A盘行星落入B盘宫位
+    bToA: Array<{ planet: PlanetName; fallsIntoHouse: number }>;  // B盘行星落入A盘宫位
+  };
+  crossAspects: Array<{                // 两人行星之间的相位
+    from: PlanetName;
+    to: PlanetName;
+    type: AspectType;
+    orb: number;
+    score: number;
+  }>;
+  scores: {
+    emotional: number;                  // 情感契合度（0-100）
+    communication: number;              // 沟通契合度（0-100）
+    longTerm: number;                   // 长期关系契合度（0-100）
+  };
+  summary: {
+    keyTheme: string;                   // 关系主题
+  };
+};
+
+/**
+ * 灵魂伴侣信号响应类型
+ */
+export type SoulmateSignalsResponse = {
+  updatedAt: string;
+  descendantProfile: {                  // 下降点配置（伴侣类型指标）
+    sign: string;                       // 下降星座
+    ruler: PlanetName;                  // 守护星
+    archetype: string;                  // 原型描述
+  };
+  venusMarsPattern: {                   // 金火模式（爱情表达方式）
+    venusSign: string;                  // 金星星座
+    marsSign: string;                   // 火星星座
+    style: string;                      // 爱情风格描述
+  };
+  northNodeLesson: {                    // 北交点课题
+    focus: string;                      // 成长焦点
+  };
+  junoPattern: {                        // 婚神星模式
+    commitmentStyle: string;            // 承诺风格
+  };
+  matchArchetypes: string[];            // 匹配原型列表
+};
+
+/**
+ * 计算输入参数类型
+ */
+export type CalcInput = {
+  birthTimeISO: string;   // 出生时间（ISO格式）
+  lat: number;           // 出生地点纬度
+  lng: number;           // 出生地点经度
+  timezone: string;      // 时区
+};
+
+/**
+ * 合盘分析输入类型
+ */
+export type SynastryInput = {
+  personA: CalcInput;
+  personB: CalcInput;
+};
+
+/**
+ * 星座类型
+ */
+export type ZodiacSign = 
+  | 'Aries'
+  | 'Taurus'
+  | 'Gemini'
+  | 'Cancer'
+  | 'Leo'
+  | 'Virgo'
+  | 'Libra'
+  | 'Scorpio'
+  | 'Sagittarius'
+  | 'Capricorn'
+  | 'Aquarius'
+  | 'Pisces';
