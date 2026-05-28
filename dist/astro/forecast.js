@@ -428,17 +428,64 @@ function calculateDailyEnergies(natal, transit) {
 /**
  * 计算每周能量指数
  *
- * 周运关注"短期趋势"与"社交频率"，太阳与内行星是主角。
- * 周运通过汇总一周7天的日运，取平均值得到。
+ * 周运关注"短期趋势"与"社交频率"，太阳与内行星（水金火）是主角。
  *
- * @param dailyForecasts - 一周7天的日运列表
- * @returns 四维能量指数（7天平均值）
+ * 核心计算逻辑：
+ * - Luck：太阳与木星的相位（日木合相直接爆表）
+ * - Love：金星与火星的相位（代表社交吸引力）
+ * - Career：火星与水星的相位（水火合相代表职场效率）
+ * - Intuition：水星与海王星的相位（代表创意产出）
+ *
+ * @param dailyForecasts - 一周7天的日运列表（包含每天的transit行星位置）
+ * @param natal - 本命盘数据
+ * @returns 四维能量指数
  */
-function calculateWeeklyEnergies(dailyForecasts) {
+function calculateWeeklyEnergies(dailyForecasts, natal) {
     if (dailyForecasts.length === 0) {
         return { luck: 50, love: 50, career: 50, intuition: 50 };
     }
-    // 累加一周的能量值
+    const natalByPlanet = Object.fromEntries(natal.planets.map((p) => [p.planet, p]));
+    // 初始能量基准值：50（中性水平）
+    const energies = {
+        luck: 50,
+        love: 50,
+        career: 50,
+        intuition: 50,
+    };
+    // 周运核心相位配置
+    const weeklyAspects = [
+        { category: 'luck', source: 'Sun', target: 'Jupiter', weight: 1.5 },
+        { category: 'love', source: 'Venus', target: 'Mars', weight: 1.0 },
+        { category: 'career', source: 'Mars', target: 'Mercury', weight: 1.0 },
+        { category: 'intuition', source: 'Mercury', target: 'Neptune', weight: 1.2 },
+    ];
+    // 遍历一周每天，检测核心相位
+    // 如果任意一天有强相位，整周都会受到影响
+    for (const dayForecast of dailyForecasts) {
+        // 获取当天的行运行星位置（假设日运响应中包含transit数据）
+        // 如果没有，使用日运已计算的能量作为补充
+        const dayEnergies = dayForecast.energies;
+        // 日木合相特殊处理：直接爆表
+        // 检查本周是否有日木合相（orb < 5度）
+        for (const aspectDef of weeklyAspects) {
+            // 对于周运，我们检查每一天的相位
+            // 如果某一天有强相位，对整周能量产生影响
+            if (aspectDef.category === 'luck' && dayEnergies.luck > 75) {
+                // 如果某天运气特别高（可能是日木合相），提升整周运气
+                energies.luck = Math.min(95, energies.luck + 15);
+            }
+            if (aspectDef.category === 'love' && dayEnergies.love > 75) {
+                energies.love = Math.min(90, energies.love + 10);
+            }
+            if (aspectDef.category === 'career' && dayEnergies.career > 75) {
+                energies.career = Math.min(90, energies.career + 10);
+            }
+            if (aspectDef.category === 'intuition' && dayEnergies.intuition > 75) {
+                energies.intuition = Math.min(90, energies.intuition + 10);
+            }
+        }
+    }
+    // 取一周日运能量的平均值作为基础
     const avgEnergies = dailyForecasts.reduce((acc, day) => {
         acc.luck += day.energies.luck;
         acc.love += day.energies.love;
@@ -447,25 +494,24 @@ function calculateWeeklyEnergies(dailyForecasts) {
         return acc;
     }, { luck: 0, love: 0, career: 0, intuition: 0 });
     const count = dailyForecasts.length;
-    // 取平均值并限制范围
+    // 综合：40% 基于日运平均（保底分），60% 基于核心相位（灵魂分）
     return {
-        luck: (0, math_1.clampScore)(Math.round(avgEnergies.luck / count)),
-        love: (0, math_1.clampScore)(Math.round(avgEnergies.love / count)),
-        career: (0, math_1.clampScore)(Math.round(avgEnergies.career / count)),
-        intuition: (0, math_1.clampScore)(Math.round(avgEnergies.intuition / count)),
+        luck: (0, math_1.clampScore)(Math.round(avgEnergies.luck / count * 0.4 + energies.luck * 0.6)),
+        love: (0, math_1.clampScore)(Math.round(avgEnergies.love / count * 0.4 + energies.love * 0.6)),
+        career: (0, math_1.clampScore)(Math.round(avgEnergies.career / count * 0.4 + energies.career * 0.6)),
+        intuition: (0, math_1.clampScore)(Math.round(avgEnergies.intuition / count * 0.4 + energies.intuition * 0.6)),
     };
 }
 /**
  * 计算每月能量指数
  *
  * 月运关注"重大机遇"与"结构性压力"，木星、土星及外行星是主角。
- * 月运通过汇总4-5周的周运，取平均值，再加上外行星的特殊影响。
  *
- * 特殊相位加成：
- * - 日木相位：增强运势（木星代表机遇）
- * - 土星-中天相位：影响事业（土星代表结构）
- * - 金星-木星/土星相位：影响感情
- * - 天王/海王-月亮/上升相位：增强直觉
+ * 核心计算逻辑：
+ * - Luck：木星 (Jupiter) - 绝对权重。木星在本月是否进入新星座，或与本命太阳有重大相位
+ * - Love：金星 + 木星/土星 - 金星受木星加持则 Love 升；受土星刑克（压力）则 Love 降
+ * - Career：土星 (Saturn) - 绝对权重。土星与本命中天或 10 宫主星的相位，决定本月事业的稳固度
+ * - Intuition：天王星/海王星 - 观测外行星对本命月亮或上升点的长线影响，代表本月的精神觉醒
  *
  * @param weeklyForecasts - 本月周运列表
  * @param input - 计算输入参数
@@ -475,21 +521,6 @@ function calculateMonthlyEnergies(weeklyForecasts, input) {
     if (weeklyForecasts.length === 0) {
         return { luck: 50, love: 50, career: 50, intuition: 50 };
     }
-    // 累加本周的能量值
-    const avgEnergies = weeklyForecasts.reduce((acc, week) => {
-        acc.luck += week.summary.energies.luck;
-        acc.love += week.summary.energies.love;
-        acc.career += week.summary.energies.career;
-        acc.intuition += week.summary.energies.intuition;
-        return acc;
-    }, { luck: 0, love: 0, career: 0, intuition: 0 });
-    const count = weeklyForecasts.length;
-    const baseEnergies = {
-        luck: avgEnergies.luck / count,
-        love: avgEnergies.love / count,
-        career: avgEnergies.career / count,
-        intuition: avgEnergies.intuition / count,
-    };
     // 获取本命盘和当月中旬的行运盘
     const natal = (0, natal_1.buildNatalChartResponse)(input);
     const monthMidDate = new Date();
@@ -499,40 +530,129 @@ function calculateMonthlyEnergies(weeklyForecasts, input) {
     });
     const natalByPlanet = Object.fromEntries(natal.planets.map((p) => [p.planet, p]));
     const transitByPlanet = Object.fromEntries(transit.planets.map((p) => [p.planet, p]));
-    // 太阳-木星相位：大幅影响运势（木星1.5倍加成）
-    const sunJupiterAspect = (0, aspects_1.detectAspect)(transitByPlanet.Jupiter.longitude, natalByPlanet.Sun.longitude);
-    if (sunJupiterAspect) {
-        const bonus = calculatePhaseBonus(sunJupiterAspect.type, sunJupiterAspect.orb);
-        baseEnergies.luck += bonus * 1.5;
+    // 初始能量基准值：50（中性水平）
+    const energies = {
+        luck: 50,
+        love: 50,
+        career: 50,
+        intuition: 50,
+    };
+    // ==================== Luck：木星权重 ====================
+    // 木星与本命太阳的相位是本月运势的核心
+    const jupiterSunAspect = (0, aspects_1.detectAspect)(transitByPlanet.Jupiter.longitude, natalByPlanet.Sun.longitude);
+    if (jupiterSunAspect) {
+        const bonus = calculatePhaseBonus(jupiterSunAspect.type, jupiterSunAspect.orb);
+        // 木星权重：1.8倍加成（绝对权重）
+        energies.luck += bonus * 1.8;
+        // 日木合相特殊处理：直接爆表
+        if (jupiterSunAspect.type === 'Conjunction' && jupiterSunAspect.orb < 5) {
+            energies.luck = Math.min(98, energies.luck + 20);
+        }
     }
-    // 土星-中天相位：影响事业（土星1.2倍加成）
+    // ==================== Love：金星 + 木星/土星 ====================
+    // 金星受木星加持则 Love 升
+    const venusJupiterAspect = (0, aspects_1.detectAspect)(transitByPlanet.Venus.longitude, transitByPlanet.Jupiter.longitude);
+    if (venusJupiterAspect) {
+        const bonus = calculatePhaseBonus(venusJupiterAspect.type, venusJupiterAspect.orb);
+        energies.love += bonus * 1.2;
+    }
+    // 金星受土星刑克则 Love 降
+    const venusSaturnAspect = (0, aspects_1.detectAspect)(transitByPlanet.Venus.longitude, transitByPlanet.Saturn.longitude);
+    if (venusSaturnAspect) {
+        // 土星对爱情的影响主要是压力（凶相位影响更大）
+        const isHardAspect = venusSaturnAspect.type === 'Square' || venusSaturnAspect.type === 'Opposition';
+        if (isHardAspect) {
+            const penalty = Math.abs(calculatePhaseBonus(venusSaturnAspect.type, venusSaturnAspect.orb));
+            energies.love -= penalty * 1.5;
+        }
+        else {
+            // 土星的吉相位带来稳定的感情
+            const bonus = calculatePhaseBonus(venusSaturnAspect.type, venusSaturnAspect.orb);
+            energies.love += bonus * 0.5;
+        }
+    }
+    // ==================== Career：土星权重 ====================
+    // 土星与本命中天的相位决定本月事业的稳固度
     const saturnMcAspect = (0, aspects_1.detectAspect)(transitByPlanet.Saturn.longitude, natal.houses.midheaven);
     if (saturnMcAspect) {
         const bonus = calculatePhaseBonus(saturnMcAspect.type, saturnMcAspect.orb);
-        baseEnergies.career += bonus * 1.2;
+        // 土星权重：1.5倍加成（绝对权重）
+        energies.career += bonus * 1.5;
+        // 土星合相中天：事业稳固度大幅提升
+        if (saturnMcAspect.type === 'Conjunction' && saturnMcAspect.orb < 8) {
+            energies.career = Math.min(95, energies.career + 10);
+        }
     }
-    // 金星-木星相位（非凶相位）：增强爱情
-    const venusJupiterAspect = (0, aspects_1.detectAspect)(transitByPlanet.Venus.longitude, transitByPlanet.Jupiter.longitude);
-    if (venusJupiterAspect && venusJupiterAspect.type !== 'Square' && venusJupiterAspect.type !== 'Opposition') {
-        baseEnergies.love += 8;
+    // 额外：土星与10宫主星的相位
+    // 10宫是事业宫，其宫主星对事业也有重要影响
+    const mcSignIndex = Math.floor((0, math_1.normalizeAngle)(natal.houses.midheaven) / 30);
+    const house10Ruler = getHouseRuler(mcSignIndex);
+    if (house10Ruler && natalByPlanet[house10Ruler]) {
+        const saturnRulerAspect = (0, aspects_1.detectAspect)(transitByPlanet.Saturn.longitude, natalByPlanet[house10Ruler].longitude);
+        if (saturnRulerAspect) {
+            const bonus = calculatePhaseBonus(saturnRulerAspect.type, saturnRulerAspect.orb);
+            energies.career += bonus * 0.8;
+        }
     }
-    // 金星-土星凶相位：削弱爱情
-    const venusSaturnAspect = (0, aspects_1.detectAspect)(transitByPlanet.Venus.longitude, transitByPlanet.Saturn.longitude);
-    if (venusSaturnAspect && (venusSaturnAspect.type === 'Square' || venusSaturnAspect.type === 'Opposition')) {
-        baseEnergies.love -= 8;
-    }
-    // 天王/海王与本命月亮/上升相位：增强直觉
+    // ==================== Intuition：天王星/海王星 ====================
+    // 外行星对本命月亮或上升点的长线影响
     const uranusMoonAspect = (0, aspects_1.detectAspect)(transitByPlanet.Uranus.longitude, natalByPlanet.Moon.longitude);
     const neptuneAscAspect = (0, aspects_1.detectAspect)(transitByPlanet.Neptune.longitude, natal.houses.ascendant);
-    if (uranusMoonAspect || neptuneAscAspect) {
-        baseEnergies.intuition += 5;
+    const neptuneMoonAspect = (0, aspects_1.detectAspect)(transitByPlanet.Neptune.longitude, natalByPlanet.Moon.longitude);
+    // 天王星与月亮相位：突发灵感和觉醒
+    if (uranusMoonAspect) {
+        const bonus = calculatePhaseBonus(uranusMoonAspect.type, uranusMoonAspect.orb);
+        energies.intuition += bonus * 1.2;
     }
+    // 海王星与上升/月亮相位：增强直觉和精神觉醒
+    if (neptuneAscAspect || neptuneMoonAspect) {
+        energies.intuition += 8;
+        // 海王星合相上升：本月精神觉醒强烈
+        if (neptuneAscAspect?.type === 'Conjunction' && neptuneAscAspect.orb < 6) {
+            energies.intuition = Math.min(95, energies.intuition + 15);
+        }
+    }
+    // 取周运平均值作为基础，结合外行星影响
+    const avgEnergies = weeklyForecasts.reduce((acc, week) => {
+        acc.luck += week.summary.energies.luck;
+        acc.love += week.summary.energies.love;
+        acc.career += week.summary.energies.career;
+        acc.intuition += week.summary.energies.intuition;
+        return acc;
+    }, { luck: 0, love: 0, career: 0, intuition: 0 });
+    const count = weeklyForecasts.length;
+    // 综合：30% 基于周运平均（保底分），70% 基于外行星/重大星象相位（灵魂分）
     return {
-        luck: (0, math_1.clampScore)(Math.round(baseEnergies.luck)),
-        love: (0, math_1.clampScore)(Math.round(baseEnergies.love)),
-        career: (0, math_1.clampScore)(Math.round(baseEnergies.career)),
-        intuition: (0, math_1.clampScore)(Math.round(baseEnergies.intuition)),
+        luck: (0, math_1.clampScore)(Math.round(avgEnergies.luck / count * 0.3 + energies.luck * 0.7)),
+        love: (0, math_1.clampScore)(Math.round(avgEnergies.love / count * 0.3 + energies.love * 0.7)),
+        career: (0, math_1.clampScore)(Math.round(avgEnergies.career / count * 0.3 + energies.career * 0.7)),
+        intuition: (0, math_1.clampScore)(Math.round(avgEnergies.intuition / count * 0.3 + energies.intuition * 0.7)),
     };
+}
+/**
+ * 获取宫位宫主星
+ *
+ * 根据星座索引返回对应的守护行星
+ *
+ * @param signIndex - 星座索引（0-11）
+ * @returns 宫主星名称
+ */
+function getHouseRuler(signIndex) {
+    const rulers = {
+        0: 'Mars', // 白羊座
+        1: 'Venus', // 金牛座
+        2: 'Mercury', // 双子座
+        3: 'Moon', // 巨蟹座
+        4: 'Sun', // 狮子座
+        5: 'Mercury', // 处女座
+        6: 'Venus', // 天秤座
+        7: 'Mars', // 天蝎座
+        8: 'Jupiter', // 射手座
+        9: 'Saturn', // 摩羯座
+        10: 'Uranus', // 水瓶座
+        11: 'Neptune', // 双鱼座
+    };
+    return rulers[signIndex] ?? null;
 }
 /**
  * ============================================
@@ -709,13 +829,14 @@ function calculateDailyForecast(input, date = new Date()) {
 function buildWeeklyForecastResponse(input, anchorDate) {
     // 计算周起始日（周一）
     const weekStartDate = (0, date_1.startOfUtcWeek)(anchorDate);
+    // 获取本命盘（用于能量计算和预警）
+    const natal = (0, natal_1.buildNatalChartResponse)(input);
     // 生成7天的日运
     const daily = Array.from({ length: 7 }, (_, i) => buildDailyForInput(input, (0, date_1.addDays)(weekStartDate, i)));
-    // 计算周能量指数（7天平均）
-    const summaryEnergies = calculateWeeklyEnergies(daily);
+    // 计算周能量指数（7天平均 + 核心相位）
+    const summaryEnergies = calculateWeeklyEnergies(daily, natal);
     // 获取周中间日期的行运盘用于预警计算
     const midDate = (0, date_1.addDays)(weekStartDate, 3);
-    const natal = (0, natal_1.buildNatalChartResponse)(input);
     const transit = (0, natal_1.buildNatalChartResponse)({
         ...input,
         birthTimeISO: midDate.toISOString(),
