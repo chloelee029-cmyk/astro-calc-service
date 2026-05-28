@@ -30,7 +30,7 @@ import { createSynastryRoutes } from './routes/synastry';
  * 环境变量配置
  * ============================================
  */
-const API_KEY = process.env.API_KEY;        // API 密钥
+const API_KEY = process.env.ASTRO_CALC_API_KEY || process.env.API_KEY;  // API 密钥（优先使用 ASTRO_CALC_API_KEY，兼容旧配置）
 const PORT = Number(process.env.PORT) || DEFAULT_PORT;  // 服务端口
 const HOST = process.env.HOST || DEFAULT_HOST;         // 服务地址
 
