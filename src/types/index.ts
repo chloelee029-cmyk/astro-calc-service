@@ -68,18 +68,40 @@ export type NatalChartResponse = {
 };
 
 /**
- * 风险预警类型
+ * 相位详情类型（Forecast 2.0 新结构）
+ */
+export type AspectDetail = {
+  dimension: 'luck' | 'love' | 'career' | 'intuition';  // 维度分类
+  aspect_key: string;                                    // 标准化相位Key
+  is_major: boolean;                                     // 是否主相位
+  orb: number;                                           // 容许度
+};
+
+/**
+ * 风险预警类型（Forecast 2.0 简化版）
  */
 export type RiskAlert = {
-  id: string;                           // 预警唯一标识
   type: 'retrograde' | 'hard_aspect' | 'station';  // 预警类型
-  severity: 'low' | 'medium' | 'high';  // 严重程度
-  planet?: PlanetName;                  // 涉及行星
-  title: string;                        // 预警标题
-  description: string;                  // 预警描述
-  advice: string;                       // 建议行动
-  startDate?: string;                   // 开始日期（ISO格式）
-  endDate?: string;                     // 结束日期（ISO格式）
+  aspect_key: string;                               // 标准化Key
+  severity: 'low' | 'medium' | 'high';              // 严重程度
+  planet?: PlanetName;                              // 涉及行星
+};
+
+/**
+ * 关键日期类型
+ */
+export type CriticalDate = {
+  date: string;        // 日期（ISO格式）
+  aspect_key: string;  // 关联的相位Key
+};
+
+/**
+ * 原始占星上下文类型（供AI使用）
+ */
+export type RawAstrologyContext = {
+  sun_sign: number;    // 太阳星座索引
+  moon_sign: number;   // 月亮星座索引
+  houses: number[];    // 宫位列表
 };
 
 /**
@@ -93,61 +115,51 @@ export type EnergyLevels = {
 };
 
 /**
- * 每日运势响应类型
+ * 每日运势响应类型（Forecast 2.0）
  */
 export type DailyForecastResponse = {
+  period: 'daily';                     // 周期类型
   updatedAt: string;                    // 更新时间（ISO格式）
   energies: EnergyLevels;               // 四维能量指数
   moonPhase: {
     name: string;                       // 月相名称
     angle: number;                      // 月相角度
   };
-  opening: string;                      // 今日开场描述
-  aspects: Array<{                     // 活跃的星象相位列表
-    title: string;
-    plainLanguage: string;
-    category: 'luck' | 'love' | 'career' | 'intuition';
-    type: AspectType;
-    orb: number;
-    score: number;
-  }>;
-  retrogrades: PlanetName[];            // 逆行行星列表
-  alerts: RiskAlert[];                  // 风险预警列表
-  radar: Array<{ axis: string; value: number }>;  // 综合能力雷达图数据
-  horoscope: Array<{                   // 运势解读列表
-    title: string;
-    content: string;
-    category: 'internal' | 'material' | 'relational';
-  }>;
+  aspect_details: AspectDetail[];       // 相位详情列表（结构化数据）
+  risk_alerts: RiskAlert[];             // 风险预警列表
+  critical_dates: CriticalDate[];       // 关键日期列表
+  raw_context: RawAstrologyContext;     // 原始占星上下文（供AI使用）
 };
 
 /**
- * 每周运势响应类型
+ * 每周运势响应类型（Forecast 2.0）
  */
 export type WeeklyForecastResponse = {
+  period: 'weekly';                     // 周期类型
   updatedAt: string;
   weekStart: string;                    // 周起始日期（YYYY-MM-DD）
   weekEnd: string;                      // 周结束日期（YYYY-MM-DD）
   daily: DailyForecastResponse[];       // 每日运势列表
-  summary: {
-    energies: EnergyLevels;             // 四维能量指数
-    keyTheme: string;                   // 本周主题
-    alerts: RiskAlert[];                // 本周风险预警
-  };
+  energies: EnergyLevels;               // 四维能量指数
+  aspect_details: AspectDetail[];       // 相位详情列表
+  risk_alerts: RiskAlert[];             // 风险预警列表
+  critical_dates: CriticalDate[];       // 关键日期列表
+  raw_context: RawAstrologyContext;     // 原始占星上下文
 };
 
 /**
- * 每月运势响应类型
+ * 每月运势响应类型（Forecast 2.0）
  */
 export type MonthlyForecastResponse = {
+  period: 'monthly';                    // 周期类型
   updatedAt: string;
   month: string;                        // 月份（YYYY-MM格式）
   weeks: WeeklyForecastResponse[];      // 每周运势列表
-  summary: {
-    energies: EnergyLevels;             // 四维能量指数
-    keyTheme: string;                   // 本月主题
-    alerts: RiskAlert[];                // 本月风险预警
-  };
+  energies: EnergyLevels;               // 四维能量指数
+  aspect_details: AspectDetail[];       // 相位详情列表
+  risk_alerts: RiskAlert[];             // 风险预警列表
+  critical_dates: CriticalDate[];       // 关键日期列表
+  raw_context: RawAstrologyContext;     // 原始占星上下文
 };
 
 /**

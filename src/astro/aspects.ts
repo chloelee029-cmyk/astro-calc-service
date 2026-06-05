@@ -84,25 +84,52 @@ export function calculateAspectScore(type: AspectType, orb: number, orbLimit: nu
 }
 
 /**
- * 获取相位的自然语言描述
- * @param type - 相位类型
- * @returns 自然语言描述
+ * 标准化相位Key生成器
+ * 统一输出 planet_aspect_target 格式的字符串
+ * 
+ * @param fromPlanet - 行运行星（如 Venus, Mars）
+ * @param aspectType - 相位类型（如 trine, square）
+ * @param toPlanet - 目标行星（如 natal_moon, natal_sun）
+ * @returns 标准化的 aspect_key 字符串
+ * 
+ * @example
+ * generateAspectKey('Venus', 'Trine', 'Moon') // 'venus_trine_natal_moon'
+ * generateAspectKey('Saturn', 'Square', 'MC') // 'saturn_square_natal_mc'
  */
-export function getAspectDescription(type: AspectType): string {
-  switch (type) {
-    case 'Trine':
-      return 'Flowing energy supports smoother decisions.';
-    case 'Sextile':
-      return 'Opportunities arise through gentle connections.';
-    case 'Conjunction':
-      return 'Focused pressure can become breakthrough momentum.';
-    case 'Square':
-      return 'Friction is high; pause, reflect, and choose intentionally.';
-    case 'Opposition':
-      return 'Tension creates awareness; seek balance and integration.';
-    default:
-      return 'A celestial connection is forming.';
-  }
+export function generateAspectKey(fromPlanet: PlanetName, aspectType: AspectType, toPlanet: string): string {
+  const planetName = fromPlanet.toLowerCase();
+  const aspectName = aspectType.toLowerCase();
+  const targetName = toPlanet.toLowerCase();
+  
+  // 如果目标是本命盘相关，添加 natal_ 前缀
+  const normalizedTarget = targetName.startsWith('natal_') ? targetName : `natal_${targetName}`;
+  
+  return `${planetName}_${aspectName}_${normalizedTarget}`;
+}
+
+/**
+ * 生成逆行相位Key
+ * @param planet - 逆行行星
+ * @returns 标准化的 aspect_key 字符串
+ * 
+ * @example
+ * generateRetrogradeKey('Mercury') // 'mercury_retrograde'
+ */
+export function generateRetrogradeKey(planet: PlanetName): string {
+  return `${planet.toLowerCase()}_retrograde`;
+}
+
+/**
+ * 生成关键日期相位Key
+ * @param aspectType - 相位类型
+ * @param date - 日期标识
+ * @returns 标准化的 aspect_key 字符串
+ * 
+ * @example
+ * generateCriticalDateKey('mercury_retrograde', 'start') // 'mercury_retrograde_start'
+ */
+export function generateCriticalDateKey(aspectType: string, date: string): string {
+  return `${aspectType.toLowerCase()}_${date.toLowerCase()}`;
 }
 
 /**
