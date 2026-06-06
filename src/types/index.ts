@@ -137,10 +137,10 @@ export type EnergyDimensions = {
  * 能量指数类型（四维）- 保留向后兼容
  */
 export type EnergyLevels = {
-  luck: number;           // 运气指数（0-100）
+  fortune: number;        // 运气指数（0-100）
   love: number;           // 爱情指数（0-100）
   career: number;         // 事业指数（0-100）
-  intuition: number;      // 直觉指数（0-100）
+  energy: number;         // 能量指数（0-100）
 };
 
 /**
