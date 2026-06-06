@@ -68,13 +68,18 @@ export type NatalChartResponse = {
 };
 
 /**
+ * 维度名称类型（新结构）
+ */
+export type DimensionName = 'love' | 'career' | 'fortune' | 'energy';
+
+/**
  * 相位详情类型（Forecast 2.0 新结构）
  */
 export type AspectDetail = {
-  dimension: 'luck' | 'love' | 'career' | 'intuition';  // 维度分类
-  aspect_key: string;                                    // 标准化相位Key
-  is_major: boolean;                                     // 是否主相位
-  orb: number;                                           // 容许度
+  dimension: DimensionName;    // 维度分类
+  aspect_key: string;          // 标准化相位Key
+  is_major: boolean;           // 是否主相位
+  orb: number;                // 容许度
 };
 
 /**
@@ -105,7 +110,31 @@ export type RawAstrologyContext = {
 };
 
 /**
- * 能量指数类型（四维）
+ * 能量趋势类型
+ */
+export type EnergyTrend = 'up' | 'down' | 'stable';
+
+/**
+ * 单个维度结果类型
+ */
+export type DimensionResult = {
+  score: number;           // 能量指数（0-100）
+  trend: EnergyTrend;       // 趋势：上升、下降、平稳
+  tags: string[];          // 关键词标签
+};
+
+/**
+ * 四维能量结果类型（新结构）
+ */
+export type EnergyDimensions = {
+  love: DimensionResult;      // 爱情维度
+  career: DimensionResult;    // 事业维度
+  fortune: DimensionResult;    // 财富维度（原 luck）
+  energy: DimensionResult;     // 直觉/能量维度（原 intuition）
+};
+
+/**
+ * 能量指数类型（四维）- 保留向后兼容
  */
 export type EnergyLevels = {
   luck: number;           // 运气指数（0-100）
@@ -135,31 +164,35 @@ export type DailyForecastResponse = {
  * 每周运势响应类型（Forecast 2.0）
  */
 export type WeeklyForecastResponse = {
-  period: 'weekly';                     // 周期类型
-  updatedAt: string;
-  weekStart: string;                    // 周起始日期（YYYY-MM-DD）
-  weekEnd: string;                      // 周结束日期（YYYY-MM-DD）
-  daily: DailyForecastResponse[];       // 每日运势列表
-  energies: EnergyLevels;               // 四维能量指数
-  aspect_details: AspectDetail[];       // 相位详情列表
-  risk_alerts: RiskAlert[];             // 风险预警列表
-  critical_dates: CriticalDate[];       // 关键日期列表
-  raw_context: RawAstrologyContext;     // 原始占星上下文
+  status: 'success';
+  data: {
+    period: 'weekly';
+    date_range: string;
+    weekStart: string;
+    weekEnd: string;
+    overall_score: number;
+    dimensions: EnergyDimensions;
+    daily: V3DailyForecastResponse['data'][];
+    aspect_details: AspectDetail[];
+    risk_alerts: RiskAlert[];
+  };
 };
 
 /**
  * 每月运势响应类型（Forecast 2.0）
  */
 export type MonthlyForecastResponse = {
-  period: 'monthly';                    // 周期类型
-  updatedAt: string;
-  month: string;                        // 月份（YYYY-MM格式）
-  weeks: WeeklyForecastResponse[];      // 每周运势列表
-  energies: EnergyLevels;               // 四维能量指数
-  aspect_details: AspectDetail[];       // 相位详情列表
-  risk_alerts: RiskAlert[];             // 风险预警列表
-  critical_dates: CriticalDate[];       // 关键日期列表
-  raw_context: RawAstrologyContext;     // 原始占星上下文
+  status: 'success';
+  data: {
+    period: 'monthly';
+    date_range: string;
+    month: string;
+    overall_score: number;
+    dimensions: EnergyDimensions;
+    weeks: WeeklyForecastResponse['data'][];
+    aspect_details: AspectDetail[];
+    risk_alerts: RiskAlert[];
+  };
 };
 
 /**
@@ -246,3 +279,61 @@ export type ZodiacSign =
   | 'Capricorn'
   | 'Aquarius'
   | 'Pisces';
+
+/**
+ * ============================================
+ * 新版运势响应类型（Forecast 3.0）
+ * ============================================
+ */
+
+/**
+ * 新版每日运势响应类型
+ */
+export type V3DailyForecastResponse = {
+  status: 'success';
+  data: {
+    period: 'daily';
+    date_range: string;
+    overall_score: number;
+    dimensions: EnergyDimensions;
+    moonPhase: {
+      name: string;
+      angle: number;
+    };
+    aspect_details: AspectDetail[];
+    risk_alerts: RiskAlert[];
+  };
+};
+
+/**
+ * 新版每周运势响应类型
+ */
+export type V3WeeklyForecastResponse = {
+  status: 'success';
+  data: {
+    period: 'weekly';
+    date_range: string;
+    weekStart: string;
+    weekEnd: string;
+    overall_score: number;
+    dimensions: EnergyDimensions;
+    aspect_details: AspectDetail[];
+    risk_alerts: RiskAlert[];
+  };
+};
+
+/**
+ * 新版每月运势响应类型
+ */
+export type V3MonthlyForecastResponse = {
+  status: 'success';
+  data: {
+    period: 'monthly';
+    date_range: string;
+    month: string;
+    overall_score: number;
+    dimensions: EnergyDimensions;
+    aspect_details: AspectDetail[];
+    risk_alerts: RiskAlert[];
+  };
+};
