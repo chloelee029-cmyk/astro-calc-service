@@ -263,19 +263,16 @@ function calculateAspectDetails(natalByPlanet, transitByPlanet, houses, timeScop
     const sensitivity = timeScope === 'daily' ? 1 : timeScope === 'weekly' ? 1.2 : 1.5;
     // 日运相位候选（以月亮为核心）
     const dailyCandidates = [
-        // ===== Luck: 月亮 + 木星 =====
+        // ===== fortune: 月亮 + 木星 =====
         { dimension: 'fortune', source: 'Moon', target: 'Jupiter', targetLongitude: natalByPlanet.Jupiter.longitude },
-        // ===== Love: 月亮 + 金星（第5宫/第7宫）=====
+        // ===== Love: 月亮 + 金星 =====
         { dimension: 'love', source: 'Moon', target: 'Venus', targetLongitude: natalByPlanet.Venus.longitude },
-        { dimension: 'love', source: 'Moon', target: '5th_house', targetLongitude: houses.cusps[4] },
-        { dimension: 'love', source: 'Moon', target: '7th_house', targetLongitude: houses.cusps[6] },
-        // ===== Career: 月亮 + 火星（中天）=====
-        { dimension: 'career', source: 'Moon', target: 'MC', targetLongitude: houses.midheaven },
+        // ===== Career: 月亮 + 火星/水星 =====
         { dimension: 'career', source: 'Moon', target: 'Mars', targetLongitude: natalByPlanet.Mars.longitude },
-        // ===== Energy: 月亮 + 太阳/火星（1宫/MC）=====
+        { dimension: 'career', source: 'Moon', target: 'Mercury', targetLongitude: natalByPlanet.Mercury.longitude },
+        // ===== Energy: 月亮 + 太阳/火星 =====
         { dimension: 'energy', source: 'Moon', target: 'Sun', targetLongitude: natalByPlanet.Sun.longitude },
         { dimension: 'energy', source: 'Moon', target: 'Mars', targetLongitude: natalByPlanet.Mars.longitude },
-        { dimension: 'energy', source: 'Moon', target: '1st_house', targetLongitude: houses.cusps[0] },
     ];
     // 周运相位候选（太阳/金星/火星为主）
     const weeklyCandidates = [
