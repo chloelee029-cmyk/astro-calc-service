@@ -79,7 +79,11 @@ export type AspectDetail = {
   dimension: DimensionName;    // 维度分类
   aspect_key: string;          // 标准化相位Key
   is_major: boolean;           // 是否主相位
-  orb: number;                // 容许度
+  orb: number;                 // 容许度
+  type?: AspectType;           // 相位类型
+  key_dates?: string[];        // 能量峰值日期（周/月运中用于标注关键日）
+  exact_date?: string;         // 精确成相日期（周运专用）
+  duration_days?: number;      // 相位持续天数（月运专用）
 };
 
 /**
@@ -90,6 +94,29 @@ export type RiskAlert = {
   aspect_key: string;                               // 标准化Key
   severity: 'low' | 'medium' | 'high';              // 严重程度
   planet?: PlanetName;                              // 涉及行星
+};
+
+/**
+ * 重大天象事件类型（Critical Events）
+ * 驱动 Key Turning Points 模块，提醒全人类共同面对的大环境风险
+ */
+export type CriticalEvent = {
+  event_key: string;                              // 事件标识：如 mercury_retrograde_start
+  date: string;                                   // 发生日期
+  type: 'retrograde' | 'ingress' | 'lunar' | 'eclipse' | 'station';  // 事件类型
+  severity: 'low' | 'medium' | 'high';            // 严重程度
+  description?: string;                           // 事件描述
+};
+
+/**
+ * 行运落宫类型（Transit Keys）
+ * 环境基调：行运行星进入本命宫位
+ */
+export type TransitKey = {
+  key: string;                  // 标准化Key：如 moon_in_house_5
+  planet: PlanetName;           // 行运行星
+  house: number;                // 本命宫位（1-12）
+  dimension: DimensionName;     // 影响维度
 };
 
 /**
@@ -144,7 +171,7 @@ export type EnergyLevels = {
 };
 
 /**
- * 每日运势响应类型（Forecast 2.0）
+ * 每日运势响应类型（已废弃，使用 V3DailyForecastResponse）
  */
 export type DailyForecastResponse = {
   period: 'daily';                     // 周期类型
@@ -161,39 +188,14 @@ export type DailyForecastResponse = {
 };
 
 /**
- * 每周运势响应类型（Forecast 2.0）
+ * 每周运势响应类型（已废弃，使用 V3WeeklyForecastResponse）
  */
-export type WeeklyForecastResponse = {
-  status: 'success';
-  data: {
-    period: 'weekly';
-    date_range: string;
-    weekStart: string;
-    weekEnd: string;
-    overall_score: number;
-    dimensions: EnergyDimensions;
-    daily: V3DailyForecastResponse['data'][];
-    aspect_details: AspectDetail[];
-    risk_alerts: RiskAlert[];
-  };
-};
+export type WeeklyForecastResponse = V3WeeklyForecastResponse;
 
 /**
- * 每月运势响应类型（Forecast 2.0）
+ * 每月运势响应类型（已废弃，使用 V3MonthlyForecastResponse）
  */
-export type MonthlyForecastResponse = {
-  status: 'success';
-  data: {
-    period: 'monthly';
-    date_range: string;
-    month: string;
-    overall_score: number;
-    dimensions: EnergyDimensions;
-    weeks: WeeklyForecastResponse['data'][];
-    aspect_details: AspectDetail[];
-    risk_alerts: RiskAlert[];
-  };
-};
+export type MonthlyForecastResponse = V3MonthlyForecastResponse;
 
 /**
  * 合盘分析响应类型
@@ -301,7 +303,8 @@ export type V3DailyForecastResponse = {
       angle: number;
     };
     aspect_details: AspectDetail[];
-    risk_alerts: RiskAlert[];
+    critical_events: CriticalEvent[];   // 重大天象节点
+    transit_keys: TransitKey[];         // 环境基调（落宫）
   };
 };
 
@@ -318,7 +321,8 @@ export type V3WeeklyForecastResponse = {
     overall_score: number;
     dimensions: EnergyDimensions;
     aspect_details: AspectDetail[];
-    risk_alerts: RiskAlert[];
+    critical_events: CriticalEvent[];   // 重大天象节点（本周新月/满月等）
+    transit_keys: TransitKey[];         // 环境基调（落宫）
   };
 };
 
@@ -334,6 +338,7 @@ export type V3MonthlyForecastResponse = {
     overall_score: number;
     dimensions: EnergyDimensions;
     aspect_details: AspectDetail[];
-    risk_alerts: RiskAlert[];
+    critical_events: CriticalEvent[];   // 重大天象节点（行星换座/逆行等）
+    transit_keys: TransitKey[];         // 环境基调（落宫）
   };
 };

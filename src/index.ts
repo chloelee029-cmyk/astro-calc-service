@@ -33,6 +33,7 @@ import { createSynastryRoutes } from './routes/synastry';
 const API_KEY = process.env.ASTRO_CALC_API_KEY || process.env.API_KEY;  // API 密钥（优先使用 ASTRO_CALC_API_KEY，兼容旧配置）
 const PORT = Number(process.env.PORT) || DEFAULT_PORT;  // 服务端口
 const HOST = process.env.HOST || DEFAULT_HOST;         // 服务地址
+const ALGO_VERSION = process.env.ASTRO_ALGO_VERSION || 'v1.0';  // 算法版本号（用于缓存版本管理）
 
 /**
  * ============================================
@@ -87,7 +88,8 @@ app.get('/health', (c) => {
   return c.json({ 
     status: 'ok', 
     timestamp: new Date().toISOString(),
-    version: '1.0.0'
+    version: '1.0.0',
+    algo_version: ALGO_VERSION  // 算法版本号（用于缓存版本管理）
   });
 });
 
