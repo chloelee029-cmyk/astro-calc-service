@@ -8,7 +8,7 @@
 import { Hono } from 'hono';
 import type { CalcInput } from '../types';
 import { parseCalcInput } from '../utils/validation';
-import { buildDailyForecastResponse } from '../astro/forecast';
+import { buildDailyForInput } from '../astro/forecast';
 import { buildNatalChartResponse } from '../astro/natal';
 
 /**
@@ -44,19 +44,7 @@ export function createForecastRoutes(validateApiKey: (authHeader: string | undef
         ? new Date(`${body.date}T12:00:00.000Z`) 
         : today;
 
-      const natal = buildNatalChartResponse(input);
-      const transit = buildNatalChartResponse({
-        ...input,
-        birthTimeISO: dateInput.toISOString(),
-      });
-
-      return c.json(
-        buildDailyForecastResponse({
-          natal,
-          transit,
-          now: today,
-        })
-      );
+      return c.json(buildDailyForInput(input, dateInput));
     } catch (error) {
       console.error('Daily forecast error:', error);
       return c.json({ error: 'Internal server error' }, 500);
