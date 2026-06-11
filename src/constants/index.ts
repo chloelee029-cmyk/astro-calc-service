@@ -126,7 +126,7 @@ export const ELEMENT_ARCHETYPES: Record<ZodiacElement, string> = {
 /**
  * 默认端口号
  */
-export const DEFAULT_PORT = 3000;
+export const DEFAULT_PORT = 3001;
 
 /**
  * 默认服务地址
