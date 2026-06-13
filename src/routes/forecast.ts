@@ -20,9 +20,12 @@ export function createForecastRoutes(validateApiKey: (authHeader: string | undef
   const router = new Hono();
 
   /**
-   * 每日运势接口
+   * 每日运势接口（支持组合模式）
    * POST /api/v1/daily-forecast
-   * Body: { birthTimeISO, lat, lng, timezone?, date? }
+   * Body: { birthTimeISO, lat, lng, timezone?, date?, includeTomorrow? }
+   * 
+   * 当 includeTomorrow=true 时，返回 { today: {...}, tomorrow: {...} }
+   * 否则返回单个日的运势数据
    */
   router.post('/api/v1/daily-forecast', async (c) => {
     const authHeader = c.req.header('Authorization');
@@ -44,7 +47,25 @@ export function createForecastRoutes(validateApiKey: (authHeader: string | undef
         ? new Date(`${body.date}T12:00:00.000Z`) 
         : today;
 
-      return c.json(buildDailyForInput(input, dateInput));
+      // 检查是否需要同时返回明天
+      const includeTomorrow = body.includeTomorrow === true;
+
+      // 计算今天的运势
+      const todayResult = buildDailyForInput(input, dateInput);
+
+      if (includeTomorrow) {
+        // 计算明天的运势
+        const tomorrowDate = new Date(dateInput);
+        tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+        const tomorrowResult = buildDailyForInput(input, tomorrowDate);
+
+        return c.json({
+          today: todayResult,
+          tomorrow: tomorrowResult,
+        });
+      }
+
+      return c.json(todayResult);
     } catch (error) {
       console.error('Daily forecast error:', error);
       return c.json({ error: 'Internal server error' }, 500);

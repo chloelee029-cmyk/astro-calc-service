@@ -309,6 +309,14 @@ export type V3DailyForecastResponse = {
 };
 
 /**
+ * 每日组合响应类型（today + tomorrow 组合）
+ */
+export type DailyComboResponse = {
+  today: V3DailyForecastResponse;
+  tomorrow: V3DailyForecastResponse;
+};
+
+/**
  * 新版每周运势响应类型
  */
 export type V3WeeklyForecastResponse = {
