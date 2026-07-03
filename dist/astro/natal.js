@@ -44,7 +44,7 @@ function buildNatalChartResponse(input) {
     const planets = raw.planets.map((planet) => {
         const name = (0, validation_1.normalizePlanetName)(planet.planet);
         const signIndex = (0, helpers_1.getSignIndex)(planet.sign);
-        const longitude = (0, math_1.round)((0, math_1.normalizeAngle)(signIndex * 30 + planet.degree));
+        const longitude = (0, math_1.round)((0, math_1.normalizeAngle)(planet.longitude));
         const house = (0, helpers_1.getHouseByCusps)(longitude, cusps, ascendant);
         const sign = constants_1.ZODIAC_SIGNS[signIndex];
         const signProps = constants_1.SIGN_PROPERTIES[sign];
@@ -58,7 +58,7 @@ function buildNatalChartResponse(input) {
             sign,
             signIndex,
             house,
-            speed: planet.retrograde ? -0.01 : 0.01,
+            speed: planet.speed,
             retrograde: planet.retrograde,
         };
     });
@@ -75,6 +75,7 @@ function buildNatalChartResponse(input) {
             elementDistribution,
             modalityDistribution,
         },
+        calculation_meta: raw.calculationMeta,
     };
 }
 /**

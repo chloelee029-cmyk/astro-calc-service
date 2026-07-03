@@ -48,7 +48,7 @@ export function buildNatalChartResponse(input: CalcInput): NatalChartResponse {
   const planets: PlanetPosition[] = raw.planets.map((planet) => {
     const name = normalizePlanetName(planet.planet);
     const signIndex = getSignIndex(planet.sign);
-    const longitude = round(normalizeAngle(signIndex * 30 + planet.degree));
+    const longitude = round(normalizeAngle(planet.longitude));
     const house = getHouseByCusps(longitude, cusps, ascendant);
     const sign = ZODIAC_SIGNS[signIndex];
     const signProps = SIGN_PROPERTIES[sign];
@@ -64,7 +64,7 @@ export function buildNatalChartResponse(input: CalcInput): NatalChartResponse {
       sign,
       signIndex,
       house,
-      speed: planet.retrograde ? -0.01 : 0.01,
+      speed: planet.speed,
       retrograde: planet.retrograde,
     };
   });
@@ -82,6 +82,7 @@ export function buildNatalChartResponse(input: CalcInput): NatalChartResponse {
       elementDistribution,
       modalityDistribution,
     },
+    calculation_meta: raw.calculationMeta,
   };
 }
 

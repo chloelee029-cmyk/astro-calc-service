@@ -118,7 +118,7 @@ exports.ELEMENT_ARCHETYPES = {
 /**
  * 默认端口号
  */
-exports.DEFAULT_PORT = 3000;
+exports.DEFAULT_PORT = 3001;
 /**
  * 默认服务地址
  */

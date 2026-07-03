@@ -1,45 +1,19 @@
 "use strict";
-/**
- * ============================================
- * 运势预测逻辑
- * ============================================
- * 提供每日、每周、每月运势的计算功能
- *
- * 多维度时间跨度计算系统：
- * - 日运：关注月亮位置及其形成的相位（即时情绪与突发小确幸）
- * - 周运：关注太阳与内行星（水金火）的变动（短期趋势与社交频率）
- * - 月运：关注木星、土星及外行星（重大机遇与结构性压力）
- *
- * 能量指数维度：Fortune（运气）、Love（爱情）、Career（事业）、Energy（直觉）
- *
- * 风险预警系统：
- * - 逆行监测：检测水星、金星、火星等行星的逆行状态
- * - 硬相位集中爆发点：当多个行运行星与本命盘形成刑冲角度时标记为压力期
- * - 行星转向预警：逆行开始（Station Retrograde）或结束（Station Direct）的关键日期
- */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.buildDailyForecastResponse = buildDailyForecastResponse;
 exports.buildDailyForInput = buildDailyForInput;
 exports.calculateDailyForecast = calculateDailyForecast;
+exports.calculateDailyComboForecast = calculateDailyComboForecast;
 exports.buildWeeklyForecastResponse = buildWeeklyForecastResponse;
 exports.calculateWeeklyForecast = calculateWeeklyForecast;
 exports.buildMonthlyForecastResponse = buildMonthlyForecastResponse;
 exports.calculateMonthlyForecast = calculateMonthlyForecast;
 const natal_1 = require("./natal");
-const aspects_1 = require("./aspects");
+const ephemeris_1 = require("./ephemeris");
+const transits_1 = require("./transits");
 const math_1 = require("../utils/math");
 const date_1 = require("../utils/date");
-/**
- * ============================================
- * 能量趋势计算
- * ============================================
- */
-/**
- * 计算能量趋势
- * @param current - 当前分数
- * @param previous - 上一周期分数
- * @returns 趋势标识
- */
+const DIMENSION_BASE_SCORE = 50;
+// forecast 只负责把大环境星象和个人行运聚合成 dashboard 需要的分数结构。
 function calculateTrend(current, previous) {
     if (previous === undefined)
         return 'stable';
@@ -50,32 +24,27 @@ function calculateTrend(current, previous) {
         return 'down';
     return 'stable';
 }
-/**
- * 计算单维度分数（从相位详情列表计算）
- */
+function calculatePhaseBonus(aspectType, orb) {
+    const baseScore = aspectType === 'Conjunction' ? 15 :
+        aspectType === 'Sextile' || aspectType === 'Trine' ? 12 :
+            aspectType === 'Square' || aspectType === 'Opposition' ? -12 :
+                0;
+    const orbFactor = Math.max(0, 1 - orb / 8);
+    return Math.round(baseScore * orbFactor);
+}
 function calculateDimensionScoreFromAspects(dimension, aspectDetailsList, previousScore) {
-    // 基础分数 50
-    let baseScore = 50;
-    // 根据该维度的相位计算调整（使用相位奖励）
-    const dimensionAspects = aspectDetailsList.filter(a => a.dimension === dimension);
+    let score = DIMENSION_BASE_SCORE;
+    const dimensionAspects = aspectDetailsList.filter((aspect) => aspect.dimension === dimension);
     for (const aspect of dimensionAspects) {
-        // 使用 calculatePhaseBonus 计算相位奖励
         if (aspect.type && aspect.orb !== undefined) {
-            baseScore += calculatePhaseBonus(aspect.type, aspect.orb);
-        }
-        else if (aspect.is_major) {
-            // 兼容旧格式：没有 type/orb 时使用简单加权
-            baseScore += 10;
+            score += calculatePhaseBonus(aspect.type, aspect.orb);
         }
     }
     return {
-        score: (0, math_1.clampScore)(baseScore),
-        trend: calculateTrend(baseScore, previousScore),
+        score: (0, math_1.clampScore)(score),
+        trend: calculateTrend(score, previousScore),
     };
 }
-/**
- * 计算四维能量结果
- */
 function calculateEnergyDimensions(aspectDetailsList, dimensionAspectKeys, previousEnergies) {
     const loveResult = calculateDimensionScoreFromAspects('love', aspectDetailsList, previousEnergies?.love);
     const careerResult = calculateDimensionScoreFromAspects('career', aspectDetailsList, previousEnergies?.career);
@@ -88,507 +57,169 @@ function calculateEnergyDimensions(aspectDetailsList, dimensionAspectKeys, previ
         energy: { ...energyResult, tags: dimensionAspectKeys.energy.slice(0, 3) },
     };
 }
-/**
- * 计算相位奖励分数
- *
- * 根据相位类型和精确度（orb）计算能量奖励。
- * - 合相(0°)：中性增强
- * - 六分相(60°)、三分相(120°)：吉相位，正向奖励
- * - 四分相(90°)、对分相(180°)：凶相位，负向惩罚
- *
- * @param aspectType - 相位类型（Conjunction/Sextile/Trine/Square/Opposition）
- * @param orb - 容许度（实际角度与标准角度的偏差，度数）
- * @returns 奖励分数（-15 到 +15），orb 越小奖励越高
- *
- * @example
- * calculatePhaseBonus('Trine', 2)   // 返回约 10~12（吉相位，orb小）
- * calculatePhaseBonus('Square', 5)  // 返回约 -5（凶相位，orb中等）
- */
-function calculatePhaseBonus(aspectType, orb) {
-    let baseScore;
-    switch (aspectType) {
-        case 'Conjunction':
-            baseScore = 18; // 合相：能量集中（增大幅度）
-            break;
-        case 'Sextile':
-        case 'Trine':
-            baseScore = 20; // 六分/三分：吉相位，能量顺畅（增大幅度）
-            break;
-        case 'Square':
-        case 'Opposition':
-            baseScore = -18; // 四分/对分：凶相位，能量紧张（增大幅度）
-            break;
-        default:
-            return 0;
-    }
-    // orbFactor: orb越小（相位越精确），奖励越高
-    // orb=0 时 factor=1（满分），orb=8 时 factor=0（无奖励）
-    const orbFactor = Math.max(0, 1 - orb / 8);
-    return Math.round(baseScore * orbFactor);
-}
-/**
- * ============================================
- * 风险预警系统
- * ============================================
- */
-/**
- * 生成逆行预警信息
- *
- * 逆行是指行星在黄道上相对于地球向后运动。
- * 逆行期间，该行星所代表的生活领域会受到影响。
- *
- * 逆行影响说明：
- * - 水星逆行：沟通混乱、电子设备问题、行程延误
- * - 金星逆行：感情关系重新评估、财务决策需谨慎
- * - 火星逆行：行动力受阻、避免冲突和冲动决策
- * - 木星逆行：机遇放缓、适合内省而非扩张
- * - 土星逆行：责任压力增加、重新审视长期目标
- *
- * @param retrogradePlanets - 当前逆行的行星列表
- * @param timeScope - 时间范围，用于生成不同详略程度的描述
- *        - daily: 简洁描述
- *        - weekly: 添加"本周处于逆行期间"前缀
- *        - monthly: 添加"本月整体基调"说明
- * @returns RiskAlert[] 风险预警列表，包含标题、描述、建议和严重程度
- *
- * @example
- * generateRetrogradeAlerts(['Mercury'], 'weekly')
- * // 返回：水星逆行预警，描述包含"本周处于水星逆行期间"
- */
-function generateRetrogradeAlerts(retrogradePlanets, timeScope) {
-    const alerts = [];
-    const retrogradeSeverity = {
-        Mercury: 'high',
-        Venus: 'medium',
-        Mars: 'high',
-        Jupiter: 'low',
-        Saturn: 'medium',
-        Uranus: 'low',
-        Neptune: 'low',
-        Pluto: 'medium',
-        Sun: 'low',
-        Moon: 'low',
+function dimensionAspectKeys(aspects) {
+    return {
+        love: aspects.filter((aspect) => aspect.dimension === 'love').map((aspect) => aspect.aspect_key),
+        career: aspects.filter((aspect) => aspect.dimension === 'career').map((aspect) => aspect.aspect_key),
+        fortune: aspects.filter((aspect) => aspect.dimension === 'fortune').map((aspect) => aspect.aspect_key),
+        energy: aspects.filter((aspect) => aspect.dimension === 'energy').map((aspect) => aspect.aspect_key),
     };
-    for (const planet of retrogradePlanets) {
-        const severity = retrogradeSeverity[planet];
-        if (severity) {
-            alerts.push({
-                type: 'retrograde',
-                aspect_key: (0, aspects_1.generateRetrogradeKey)(planet),
-                severity,
-                planet,
-            });
-        }
-    }
-    return alerts;
 }
-/**
- * 检测硬相位集中爆发点
- *
- * 硬相位是指四分相（Square/90°）和对分相（Opposition/180°）。
- * 当多个行运行星与本命盘形成硬相位时，代表能量紧张、压力增加。
- *
- * 检测逻辑：
- * 1. 获取本命盘的关键点：太阳、月亮、上升点、中天
- * 2. 检测外行星（火/土/天/冥王）对上述关键点是否形成硬相位
- * 3. 如果硬相位数量 >= 2，生成预警
- *
- * @param natal - 本命盘数据（包含行星位置和宫位）
- * @param transit - 行运盘数据（当前时刻的行星位置）
- * @param timeScope - 时间范围标识
- * @returns 硬相位预警列表
- *
- * @example
- * // 当火星对冲上升点、木星刑太阳时
- * // 返回：硬相位集中预警，提示潜在冲突期
- */
-function detectHardAspectCluster(natal, transit, timeScope) {
-    const alerts = [];
-    const natalByPlanet = Object.fromEntries(natal.planets.map((p) => [p.planet, p]));
-    const transitByPlanet = Object.fromEntries(transit.planets.map((p) => [p.planet, p]));
-    let hardAspectCount = 0;
-    const importantPoints = [
-        { name: 'Sun', longitude: natalByPlanet.Sun.longitude },
-        { name: 'Moon', longitude: natalByPlanet.Moon.longitude },
-        { name: 'Ascendant', longitude: natal.houses.ascendant },
-        { name: 'Midheaven', longitude: natal.houses.midheaven },
-    ];
-    for (const planet of ['Mars', 'Saturn', 'Uranus', 'Pluto']) {
-        const transitLong = transitByPlanet[planet]?.longitude;
-        if (transitLong === undefined)
-            continue;
-        for (const point of importantPoints) {
-            const aspect = (0, aspects_1.detectAspect)(transitLong, point.longitude);
-            if (aspect && (aspect.type === 'Square' || aspect.type === 'Opposition')) {
-                hardAspectCount++;
-            }
-        }
-    }
-    if (hardAspectCount >= 2) {
-        alerts.push({
-            type: 'hard_aspect',
-            aspect_key: 'hard_aspect_cluster',
-            severity: hardAspectCount >= 3 ? 'high' : 'medium',
-        });
-    }
-    return alerts;
-}
-/**
- * ============================================
- * 运势构建函数
- * ============================================
- */
-/**
- * 构建每日运势响应
- *
- * 整合本命盘和行运盘数据，生成完整的日运报告。
- *
- * @param args - 输入参数包
- * @param args.natal - 本命盘（出生时行星位置，作为能量基准）
- * @param args.transit - 行运盘（当前行星位置）
- * @param args.now - 当前时间
- * @returns DailyForecastResponse 完整的日运响应数据
- */
-/**
- * 计算相位详情列表
- *
- * @param natalByPlanet - 本命盘行星对象（按行星名索引）
- * @param transitByPlanet - 行运盘行星对象（按行星名索引）
- * @param houses - 宫位信息（包含中天和宫头）
- * @param timeScope - 时间范围（用于调整相位敏感度）
- * @returns 相位详情列表
- */
-function calculateAspectDetails(natalByPlanet, transitByPlanet, houses, timeScope) {
-    // 根据时间范围调整相位敏感度
-    const sensitivity = timeScope === 'daily' ? 1 : timeScope === 'weekly' ? 1.2 : 1.5;
-    // 日运相位候选（以月亮为核心）
-    const dailyCandidates = [
-        // ===== fortune: 月亮 + 木星 =====
-        { dimension: 'fortune', source: 'Moon', target: 'Jupiter', targetLongitude: natalByPlanet.Jupiter.longitude },
-        // ===== Love: 月亮 + 金星 =====
-        { dimension: 'love', source: 'Moon', target: 'Venus', targetLongitude: natalByPlanet.Venus.longitude },
-        // ===== Career: 月亮 + 火星/水星 =====
-        { dimension: 'career', source: 'Moon', target: 'Mars', targetLongitude: natalByPlanet.Mars.longitude },
-        { dimension: 'career', source: 'Moon', target: 'Mercury', targetLongitude: natalByPlanet.Mercury.longitude },
-        // ===== Energy: 月亮 + 太阳/火星 =====
-        { dimension: 'energy', source: 'Moon', target: 'Sun', targetLongitude: natalByPlanet.Sun.longitude },
-        { dimension: 'energy', source: 'Moon', target: 'Mars', targetLongitude: natalByPlanet.Mars.longitude },
-    ];
-    // 周运相位候选（太阳/金星/火星为主）
-    const weeklyCandidates = [
-        // ===== Luck: 太阳 + 木星（日木合直接爆表）=====
-        { dimension: 'fortune', source: 'Sun', target: 'Jupiter', targetLongitude: natalByPlanet.Jupiter.longitude },
-        // ===== Love: 金星 + 火星（社交吸引力）=====
-        { dimension: 'love', source: 'Venus', target: 'Mars', targetLongitude: natalByPlanet.Mars.longitude },
-        { dimension: 'love', source: 'Venus', target: 'Venus', targetLongitude: natalByPlanet.Venus.longitude },
-        // ===== Career: 火星 + 水星（职场效率）=====
-        { dimension: 'career', source: 'Mars', target: 'Mercury', targetLongitude: natalByPlanet.Mercury.longitude },
-        { dimension: 'career', source: 'Mercury', target: 'Mars', targetLongitude: natalByPlanet.Mars.longitude },
-        // ===== Energy: 太阳 + 火星（持续动力）=====
-        { dimension: 'energy', source: 'Sun', target: 'Mars', targetLongitude: natalByPlanet.Mars.longitude },
-        { dimension: 'energy', source: 'Mars', target: 'Sun', targetLongitude: natalByPlanet.Sun.longitude },
-    ];
-    // 月运相位候选（外行星为主）
-    const monthlyCandidates = [
-        // ===== Luck: 木星（绝对权重）=====
-        { dimension: 'fortune', source: 'Jupiter', target: 'Sun', targetLongitude: natalByPlanet.Sun.longitude },
-        { dimension: 'fortune', source: 'Jupiter', target: 'Jupiter', targetLongitude: natalByPlanet.Jupiter.longitude },
-        // ===== Love: 金星 + 木星/土星（加持/压力）=====
-        { dimension: 'love', source: 'Venus', target: 'Jupiter', targetLongitude: natalByPlanet.Jupiter.longitude },
-        { dimension: 'love', source: 'Venus', target: 'Saturn', targetLongitude: natalByPlanet.Saturn.longitude },
-        { dimension: 'love', source: 'Venus', target: 'Venus', targetLongitude: natalByPlanet.Venus.longitude },
-        // ===== Career: 土星（与中天相位）=====
-        { dimension: 'career', source: 'Saturn', target: 'MC', targetLongitude: houses.midheaven },
-        { dimension: 'career', source: 'Saturn', target: 'Saturn', targetLongitude: natalByPlanet.Saturn.longitude },
-        // ===== Energy: 太阳 + 火星 + 外行星 =====
-        { dimension: 'energy', source: 'Sun', target: 'Mars', targetLongitude: natalByPlanet.Mars.longitude },
-        { dimension: 'energy', source: 'Uranus', target: 'Uranus', targetLongitude: natalByPlanet.Uranus.longitude },
-        { dimension: 'energy', source: 'Neptune', target: 'Neptune', targetLongitude: natalByPlanet.Neptune.longitude },
-    ];
-    // 根据时间范围选择相位候选
-    const aspectCandidates = timeScope === 'daily' ? dailyCandidates :
-        timeScope === 'weekly' ? weeklyCandidates : monthlyCandidates;
-    return aspectCandidates.map((candidate) => {
-        const sourceLongitude = transitByPlanet[candidate.source].longitude;
-        const aspect = (0, aspects_1.detectAspect)(sourceLongitude, candidate.targetLongitude);
-        if (!aspect)
-            return null;
-        const score = (0, aspects_1.calculateAspectScore)(aspect.type, aspect.orb);
-        // 特殊处理：日木合相直接爆表
-        const isMajorOverride = timeScope === 'weekly' &&
-            candidate.source === 'Sun' &&
-            candidate.target === 'Jupiter' &&
-            aspect.type === 'Conjunction';
-        return {
-            dimension: candidate.dimension,
-            aspect_key: (0, aspects_1.generateAspectKey)(candidate.source, aspect.type, candidate.target),
-            is_major: isMajorOverride || Math.abs(score) > 50 * sensitivity,
-            orb: (0, math_1.round)(aspect.orb, 2),
-            type: aspect.type,
-        };
-    }).filter(Boolean);
-}
-function buildDailyForecastResponse(args) {
-    const natalByPlanet = Object.fromEntries(args.natal.planets.map((planet) => [planet.planet, planet]));
-    const transitByPlanet = Object.fromEntries(args.transit.planets.map((planet) => [planet.planet, planet]));
-    // 计算相位详情（使用月中日期的行运盘）
-    const aspectDetailsList = calculateAspectDetails(natalByPlanet, transitByPlanet, { midheaven: args.natal.houses.midheaven, cusps: args.natal.houses.cusps }, 'daily');
-    // 提取各维度的 aspect_keys 用于生成标签
-    const dimensionAspectKeys = {
-        love: [],
-        career: [],
-        fortune: [],
-        energy: [],
+function splitGlobalContext(args) {
+    return {
+        dateRange: args.dateRange,
+        moonPhase: (0, ephemeris_1.moonPhase)(args.centralTransit),
+        ingressEvents: args.globalEvents.filter((event) => event.type === 'ingress'),
+        retrogradeEvents: args.globalEvents.filter((event) => event.type === 'retrograde' || event.type === 'station'),
+        lunarEvents: args.globalEvents.filter((event) => event.type === 'lunar' || event.type === 'eclipse'),
+        collectiveAspects: args.collectiveAspects,
     };
-    aspectDetailsList.forEach((detail) => {
-        if (detail) {
-            dimensionAspectKeys[detail.dimension].push(detail.aspect_key);
-        }
+}
+function overallScore(dimensions) {
+    return Math.round((dimensions.love.score + dimensions.career.score + dimensions.fortune.score + dimensions.energy.score) / 4);
+}
+function buildForecastForRange(args) {
+    const days = (0, ephemeris_1.dateRange)(args.start, args.end);
+    const natal = (0, natal_1.buildNatalChartResponse)(args.input);
+    const global = (0, ephemeris_1.buildGlobalEventsForInput)(args.input, args.start, args.end);
+    const { aspectDetails, personalTransits, centralTransit } = (0, transits_1.scanPersonalTransits)(natal, args.input, days, args.scope);
+    const dimensions = calculateEnergyDimensions(aspectDetails, dimensionAspectKeys(aspectDetails));
+    return {
+        natal,
+        centralTransit,
+        dimensions,
+        aspectDetails,
+        globalEvents: global.events,
+        planetaryWeather: global.weather,
+        collectiveAspects: global.collectiveAspects,
+        personalTransits,
+        transitKeys: (0, transits_1.calculateTransitKeys)(centralTransit, natal, args.scope),
+        calculationMeta: natal.calculation_meta || global.calculation_meta,
+    };
+}
+function buildDailyForInput(input, date) {
+    const targetDate = (0, ephemeris_1.dateAtUtcNoon)(date);
+    const forecast = buildForecastForRange({ input, start: targetDate, end: targetDate, scope: 'daily' });
+    const moon = (0, ephemeris_1.moonPhase)(forecast.centralTransit);
+    const dateRangeLabel = (0, date_1.formatIsoDate)(targetDate);
+    const globalContext = splitGlobalContext({
+        dateRange: dateRangeLabel,
+        globalEvents: forecast.globalEvents,
+        centralTransit: forecast.centralTransit,
+        collectiveAspects: forecast.collectiveAspects,
     });
-    // 计算四维能量结果
-    const dimensions = calculateEnergyDimensions(aspectDetailsList, dimensionAspectKeys);
-    // 计算总分
-    const overall_score = Math.round((dimensions.love.score + dimensions.career.score + dimensions.fortune.score + dimensions.energy.score) / 4);
-    const phaseAngle = (0, math_1.normalizeAngle)(transitByPlanet.Moon.longitude - transitByPlanet.Sun.longitude);
-    const moonPhase = {
-        name: (0, aspects_1.moonPhaseFromAngle)(phaseAngle),
-        angle: (0, math_1.round)(phaseAngle, 2),
-    };
-    const retrogrades = args.transit.planets.filter((planet) => planet.retrograde).map((planet) => planet.planet);
-    const retrogradeAlerts = generateRetrogradeAlerts(retrogrades, 'daily');
-    const hardAspectAlerts = detectHardAspectCluster(args.natal, args.transit, 'daily');
-    const risk_alerts = [...retrogradeAlerts, ...hardAspectAlerts];
-    // 返回新的 V3 格式
+    const personalContext = (0, transits_1.splitPersonalContext)({
+        natal: forecast.natal,
+        aspectDetails: forecast.aspectDetails,
+        transitKeys: forecast.transitKeys,
+    });
     return {
         status: 'success',
         data: {
             period: 'daily',
-            date_range: args.now.toISOString().split('T')[0],
-            overall_score,
-            dimensions,
-            moonPhase,
-            aspect_details: aspectDetailsList,
-            risk_alerts,
+            date_range: (0, date_1.formatIsoDate)(targetDate),
+            overall_score: overallScore(forecast.dimensions),
+            dimensions: forecast.dimensions,
+            moonPhase: moon,
+            aspect_details: forecast.aspectDetails,
+            critical_events: forecast.globalEvents,
+            global_events: forecast.globalEvents,
+            transit_keys: forecast.transitKeys,
+            planetary_weather: forecast.planetaryWeather,
+            personal_transits: forecast.personalTransits,
+            globalContext,
+            personalContext,
+            calculation_meta: forecast.calculationMeta,
         },
     };
 }
-/**
- * 根据输入参数构建每日运势
- *
- * 这是面向外部调用的便捷函数，自动构建本命盘和行运盘。
- *
- * @param input - 计算输入参数（出生时间、地点等）
- * @param date - 目标日期
- * @returns DailyForecastResponse 日运响应
- */
-function buildDailyForInput(input, date) {
-    // 构建本命盘（出生时的星盘，不随时间变化）
-    const natal = (0, natal_1.buildNatalChartResponse)(input);
-    // 构建行运盘（指定日期的行星位置）
-    const transit = (0, natal_1.buildNatalChartResponse)({
-        ...input,
-        birthTimeISO: date.toISOString(),
-    });
-    return buildDailyForecastResponse({ natal, transit, now: date });
-}
-/**
- * 计算每日运势
- *
- * 公开API，计算指定日期的运势。
- *
- * @param input - 计算输入参数
- * @param date - 目标日期（默认为今天）
- * @returns V3DailyForecastResponse 日运响应
- */
 function calculateDailyForecast(input, date = new Date()) {
     return buildDailyForInput(input, date);
 }
-/**
- * 构建每周运势响应
- *
- * 周运覆盖周一到周日7天，提供整体趋势和每日明细。
- *
- * @param input - 计算输入参数
- * @param anchorDate - 锚定日期（用于确定周起始日）
- * @returns WeeklyForecastResponse 周运响应
- */
+function calculateDailyComboForecast(input, date = new Date()) {
+    const today = (0, ephemeris_1.dateAtUtcNoon)(date);
+    return {
+        today: buildDailyForInput(input, today),
+        tomorrow: buildDailyForInput(input, (0, date_1.addDays)(today, 1)),
+    };
+}
 function buildWeeklyForecastResponse(input, anchorDate) {
     const weekStartDate = (0, date_1.startOfUtcWeek)(anchorDate);
-    const natal = (0, natal_1.buildNatalChartResponse)(input);
-    // 生成7天的日运数据
-    const dailyResults = Array.from({ length: 7 }, (_, i) => {
-        const date = (0, date_1.addDays)(weekStartDate, i);
-        return buildDailyForInput(input, date);
+    const weekEndDate = (0, date_1.addDays)(weekStartDate, 6);
+    const forecast = buildForecastForRange({ input, start: weekStartDate, end: weekEndDate, scope: 'weekly' });
+    const dateRangeLabel = `${(0, date_1.formatIsoDate)(weekStartDate)} ~ ${(0, date_1.formatIsoDate)(weekEndDate)}`;
+    const globalContext = splitGlobalContext({
+        dateRange: dateRangeLabel,
+        globalEvents: forecast.globalEvents,
+        centralTransit: forecast.centralTransit,
+        collectiveAspects: forecast.collectiveAspects,
     });
-    // 提取每日数据中的维度信息
-    const dailyDataList = dailyResults.map(r => r.data);
-    // 计算周运维度平均分
-    const dimensions = {
-        love: { score: 0, trend: 'stable', tags: [] },
-        career: { score: 0, trend: 'stable', tags: [] },
-        fortune: { score: 0, trend: 'stable', tags: [] },
-        energy: { score: 0, trend: 'stable', tags: [] },
-    };
-    // 计算周运核心相位分数（60%权重）
-    const midDate = (0, date_1.addDays)(weekStartDate, 3);
-    const transit = (0, natal_1.buildNatalChartResponse)({
-        ...input,
-        birthTimeISO: midDate.toISOString(),
+    const personalContext = (0, transits_1.splitPersonalContext)({
+        natal: forecast.natal,
+        aspectDetails: forecast.aspectDetails,
+        transitKeys: forecast.transitKeys,
     });
-    const natalByPlanet = Object.fromEntries(natal.planets.map((planet) => [planet.planet, planet]));
-    const transitByPlanet = Object.fromEntries(transit.planets.map((planet) => [planet.planet, planet]));
-    // 独立计算周运相位（使用周三的行运盘）
-    const aspect_details = calculateAspectDetails(natalByPlanet, transitByPlanet, { midheaven: natal.houses.midheaven, cusps: natal.houses.cusps }, 'weekly');
-    // 计算核心相位维度分数
-    const coreDimensions = calculateEnergyDimensions(aspect_details, {
-        love: aspect_details.filter(a => a.dimension === 'love').map(a => a.aspect_key),
-        career: aspect_details.filter(a => a.dimension === 'career').map(a => a.aspect_key),
-        fortune: aspect_details.filter(a => a.dimension === 'fortune').map(a => a.aspect_key),
-        energy: aspect_details.filter(a => a.dimension === 'energy').map(a => a.aspect_key),
-    });
-    const keys = ['love', 'career', 'fortune', 'energy'];
-    keys.forEach(key => {
-        const scores = dailyDataList.map(d => d.dimensions[key].score);
-        const avgScore = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
-        // 加权计算：40%日运平均 + 60%核心相位
-        const weightedScore = Math.round(avgScore * 0.4 + coreDimensions[key].score * 0.6);
-        // 计算趋势：第一天 vs 最后一天
-        const firstScore = dailyDataList[0].dimensions[key].score;
-        const lastScore = dailyDataList[6].dimensions[key].score;
-        const trend = lastScore > firstScore + 5 ? 'up' : lastScore < firstScore - 5 ? 'down' : 'stable';
-        // 收集标签（合并日运和核心相位标签）
-        const dailyTags = dailyDataList.flatMap(d => d.dimensions[key].tags);
-        const coreTags = coreDimensions[key].tags;
-        const tags = [...new Set([...dailyTags, ...coreTags])].slice(0, 3);
-        dimensions[key] = { score: (0, math_1.clampScore)(weightedScore), trend, tags };
-    });
-    // 计算总分
-    const overall_score = Math.round((dimensions.love.score + dimensions.career.score + dimensions.fortune.score + dimensions.energy.score) / 4);
-    const allRetrogrades = [...new Set(dailyResults.flatMap(d => d.data.risk_alerts
-            .filter((a) => a.type === 'retrograde' && a.planet)
-            .map((a) => a.planet)))];
-    const retrogradeAlerts = generateRetrogradeAlerts(allRetrogrades, 'weekly');
-    const hardAspectAlerts = detectHardAspectCluster(natal, transit, 'weekly');
     return {
         status: 'success',
         data: {
             period: 'weekly',
-            date_range: `${(0, date_1.formatIsoDate)(weekStartDate)} ~ ${(0, date_1.formatIsoDate)((0, date_1.addDays)(weekStartDate, 6))}`,
+            date_range: dateRangeLabel,
             weekStart: (0, date_1.formatIsoDate)(weekStartDate),
-            weekEnd: (0, date_1.formatIsoDate)((0, date_1.addDays)(weekStartDate, 6)),
-            overall_score,
-            dimensions,
-            daily: dailyDataList,
-            aspect_details,
-            risk_alerts: [...retrogradeAlerts, ...hardAspectAlerts],
+            weekEnd: (0, date_1.formatIsoDate)(weekEndDate),
+            overall_score: overallScore(forecast.dimensions),
+            dimensions: forecast.dimensions,
+            aspect_details: forecast.aspectDetails,
+            critical_events: forecast.globalEvents,
+            global_events: forecast.globalEvents,
+            transit_keys: forecast.transitKeys,
+            planetary_weather: forecast.planetaryWeather,
+            personal_transits: forecast.personalTransits,
+            globalContext,
+            personalContext,
+            calculation_meta: forecast.calculationMeta,
         },
     };
 }
-/**
- * 计算每周运势
- *
- * @param input - 计算输入参数
- * @param anchorDate - 锚定日期（默认为今天）
- * @returns WeeklyForecastResponse 周运响应
- */
 function calculateWeeklyForecast(input, anchorDate = new Date()) {
     return buildWeeklyForecastResponse(input, anchorDate);
 }
-/**
- * 构建每月运势响应
- *
- * 月运覆盖整月（约4-5周），提供整体月相基调。
- *
- * @param input - 计算输入参数
- * @param anchorDate - 锚定日期
- * @returns MonthlyForecastResponse 月运响应
- */
 function buildMonthlyForecastResponse(input, anchorDate) {
     const monthStart = (0, date_1.startOfUtcMonth)(anchorDate);
+    const monthEnd = new Date(Date.UTC(monthStart.getUTCFullYear(), monthStart.getUTCMonth() + 1, 0, 12, 0, 0, 0));
     const month = `${monthStart.getUTCFullYear()}-${String(monthStart.getUTCMonth() + 1).padStart(2, '0')}`;
-    const weeksData = [];
-    let cursor = (0, date_1.startOfUtcWeek)(monthStart);
-    for (let i = 0; i < 6; i += 1) {
-        const weekly = buildWeeklyForecastResponse(input, cursor);
-        const weekStart = new Date(`${weekly.data.weekStart}T00:00:00.000Z`);
-        const weekEnd = new Date(`${weekly.data.weekEnd}T00:00:00.000Z`);
-        const overlapsMonth = weekStart.getUTCMonth() === monthStart.getUTCMonth() ||
-            weekEnd.getUTCMonth() === monthStart.getUTCMonth();
-        if (overlapsMonth) {
-            weeksData.push(weekly.data);
-        }
-        cursor = (0, date_1.addDays)(cursor, 7);
-    }
-    // 计算月运维度平均分
-    const dimensions = {
-        love: { score: 0, trend: 'stable', tags: [] },
-        career: { score: 0, trend: 'stable', tags: [] },
-        fortune: { score: 0, trend: 'stable', tags: [] },
-        energy: { score: 0, trend: 'stable', tags: [] },
-    };
-    // 计算月运核心相位分数（70%权重）
-    const monthMidDate = new Date(monthStart);
-    monthMidDate.setDate(monthMidDate.getDate() + 15);
-    const natal = (0, natal_1.buildNatalChartResponse)(input);
-    const transit = (0, natal_1.buildNatalChartResponse)({
-        ...input,
-        birthTimeISO: monthMidDate.toISOString(),
+    const forecast = buildForecastForRange({ input, start: monthStart, end: monthEnd, scope: 'monthly' });
+    const dateRangeLabel = `${(0, date_1.formatIsoDate)(monthStart)} ~ ${(0, date_1.formatIsoDate)(monthEnd)}`;
+    const globalContext = splitGlobalContext({
+        dateRange: dateRangeLabel,
+        globalEvents: forecast.globalEvents,
+        centralTransit: forecast.centralTransit,
+        collectiveAspects: forecast.collectiveAspects,
     });
-    const natalByPlanet = Object.fromEntries(natal.planets.map((planet) => [planet.planet, planet]));
-    const transitByPlanet = Object.fromEntries(transit.planets.map((planet) => [planet.planet, planet]));
-    // 独立计算月运相位（使用月中日期的行运盘）
-    const aspect_details = calculateAspectDetails(natalByPlanet, transitByPlanet, { midheaven: natal.houses.midheaven, cusps: natal.houses.cusps }, 'monthly');
-    // 计算核心相位维度分数（外行星/重大星象）
-    const coreDimensions = calculateEnergyDimensions(aspect_details, {
-        love: aspect_details.filter(a => a.dimension === 'love').map(a => a.aspect_key),
-        career: aspect_details.filter(a => a.dimension === 'career').map(a => a.aspect_key),
-        fortune: aspect_details.filter(a => a.dimension === 'fortune').map(a => a.aspect_key),
-        energy: aspect_details.filter(a => a.dimension === 'energy').map(a => a.aspect_key),
+    const personalContext = (0, transits_1.splitPersonalContext)({
+        natal: forecast.natal,
+        aspectDetails: forecast.aspectDetails,
+        transitKeys: forecast.transitKeys,
     });
-    const keys = ['love', 'career', 'fortune', 'energy'];
-    keys.forEach(key => {
-        const scores = weeksData.map(w => w.dimensions[key].score);
-        const avgScore = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
-        // 加权计算：30%周运平均 + 70%核心相位（外行星/重大星象）
-        const weightedScore = Math.round(avgScore * 0.3 + coreDimensions[key].score * 0.7);
-        // 计算趋势：第一周 vs 最后一周
-        const firstScore = weeksData[0]?.dimensions[key].score || avgScore;
-        const lastScore = weeksData[weeksData.length - 1]?.dimensions[key].score || avgScore;
-        const trend = lastScore > firstScore + 5 ? 'up' : lastScore < firstScore - 5 ? 'down' : 'stable';
-        // 收集标签（合并周运和核心相位标签）
-        const weeklyTags = weeksData.flatMap(w => w.dimensions[key].tags);
-        const coreTags = coreDimensions[key].tags;
-        const tags = [...new Set([...weeklyTags, ...coreTags])].slice(0, 3);
-        dimensions[key] = { score: (0, math_1.clampScore)(weightedScore), trend, tags };
-    });
-    // 计算总分
-    const overall_score = Math.round((dimensions.love.score + dimensions.career.score + dimensions.fortune.score + dimensions.energy.score) / 4);
-    const allRetrogrades = [...new Set(weeksData.flatMap(w => w.daily.flatMap(d => d.risk_alerts
-            .filter((a) => a.type === 'retrograde' && a.planet)
-            .map((a) => a.planet))))];
-    const retrogradeAlerts = generateRetrogradeAlerts(allRetrogrades, 'monthly');
-    const hardAspectAlerts = detectHardAspectCluster(natal, transit, 'monthly');
     return {
         status: 'success',
         data: {
             period: 'monthly',
-            date_range: `${monthStart.toISOString().split('T')[0]} ~ ${(0, date_1.addDays)(monthStart, 30).toISOString().split('T')[0]}`,
+            date_range: dateRangeLabel,
             month,
-            overall_score,
-            dimensions,
-            weeks: weeksData,
-            aspect_details,
-            risk_alerts: [...retrogradeAlerts, ...hardAspectAlerts],
+            overall_score: overallScore(forecast.dimensions),
+            dimensions: forecast.dimensions,
+            aspect_details: forecast.aspectDetails,
+            critical_events: forecast.globalEvents,
+            global_events: forecast.globalEvents,
+            transit_keys: forecast.transitKeys,
+            planetary_weather: forecast.planetaryWeather,
+            personal_transits: forecast.personalTransits,
+            globalContext,
+            personalContext,
+            calculation_meta: forecast.calculationMeta,
         },
     };
 }
-/**
- * 计算每月运势
- *
- * @param input - 计算输入参数
- * @param anchorDate - 锚定日期（默认为今天）
- * @returns MonthlyForecastResponse 月运响应
- */
 function calculateMonthlyForecast(input, anchorDate = new Date()) {
     return buildMonthlyForecastResponse(input, anchorDate);
 }
