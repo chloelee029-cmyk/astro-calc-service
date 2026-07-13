@@ -8,6 +8,7 @@ import { createForecastRoutes } from './routes/forecast';
 import { createNatalRoutes } from './routes/natal';
 import { createSynastryRoutes } from './routes/synastry';
 import { createTransitRoutes } from './routes/transits';
+import { createMcpRoutes } from './routes/mcp';
 
 const API_KEY = process.env.ASTRO_CALC_API_KEY || process.env.API_KEY;
 const PORT = Number(process.env.PORT) || DEFAULT_PORT;
@@ -50,6 +51,7 @@ app.route('/', createEphemerisRoutes(validateApiKey));
 app.route('/', createForecastRoutes(validateApiKey));
 app.route('/', createTransitRoutes(validateApiKey));
 app.route('/', createSynastryRoutes(validateApiKey));
+app.route('/', createMcpRoutes(validateApiKey));
 
 function initializeWithTimeout(timeoutMs: number): Promise<boolean> {
   return new Promise((resolve) => {
