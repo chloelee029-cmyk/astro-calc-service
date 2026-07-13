@@ -11,6 +11,7 @@ const forecast_1 = require("./routes/forecast");
 const natal_1 = require("./routes/natal");
 const synastry_1 = require("./routes/synastry");
 const transits_1 = require("./routes/transits");
+const mcp_1 = require("./routes/mcp");
 const API_KEY = process.env.ASTRO_CALC_API_KEY || process.env.API_KEY;
 const PORT = Number(process.env.PORT) || constants_1.DEFAULT_PORT;
 const HOST = process.env.HOST || constants_1.DEFAULT_HOST;
@@ -48,6 +49,7 @@ app.route('/', (0, ephemeris_1.createEphemerisRoutes)(validateApiKey));
 app.route('/', (0, forecast_1.createForecastRoutes)(validateApiKey));
 app.route('/', (0, transits_1.createTransitRoutes)(validateApiKey));
 app.route('/', (0, synastry_1.createSynastryRoutes)(validateApiKey));
+app.route('/', (0, mcp_1.createMcpRoutes)(validateApiKey));
 function initializeWithTimeout(timeoutMs) {
     return new Promise((resolve) => {
         const timeout = setTimeout(() => {
