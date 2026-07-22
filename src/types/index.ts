@@ -15,6 +15,7 @@ export type ZodiacModality = 'Cardinal' | 'Fixed' | 'Mutable';
 export type AspectType = 'Conjunction' | 'Sextile' | 'Square' | 'Trine' | 'Opposition';
 export type DimensionName = 'love' | 'career' | 'fortune' | 'energy';
 export type EnergyTrend = 'up' | 'down' | 'stable';
+export type AspectStrength = 'low' | 'medium' | 'high' | 'very_high';
 
 export type CalculationMeta = {
   initialized: boolean;
@@ -37,16 +38,95 @@ export type PlanetPosition = {
   retrograde: boolean;
 };
 
+export type ZodiacPoint = {
+  longitude: number;
+  degree: number;
+  sign: string;
+  signIndex: number;
+};
+
+export type NatalAspect = {
+  body1: PlanetName;
+  body2: PlanetName;
+  type: AspectType;
+  exactAngle: number;
+  actualAngle: number;
+  orb: number;
+  applying: boolean;
+  strength: number;
+  category: 'major';
+  interpretationWeight: AspectStrength;
+};
+
+export type HouseCuspDetail = ZodiacPoint & {
+  house: number;
+  traditionalRuler: PlanetName;
+  modernRuler: PlanetName;
+};
+
+export type HouseRuler = {
+  house: number;
+  cuspSign: string;
+  traditionalRuler: PlanetName;
+  modernRuler: PlanetName;
+  rulerPlacement: {
+    planet: PlanetName;
+    sign: string;
+    house: number;
+    retrograde: boolean;
+  } | null;
+};
+
+export type LunarNodePosition = ZodiacPoint & {
+  house: number;
+  retrograde: boolean;
+};
+
+export type BirthDataSnapshot = {
+  localDate: string;
+  localTime: string;
+  timezone: string;
+  utcDateTime: string;
+  latitude: number;
+  longitude: number;
+  placeName?: string;
+};
+
+export type ChartSettings = {
+  zodiac: 'tropical';
+  houseSystem: 'Placidus';
+  houseSystemCode: 'P';
+  nodeType: 'true';
+  coordinateMode: 'geocentric';
+  ephemeris: 'Swiss Ephemeris';
+};
+
 // 本命盘结构：主站 my-chart、forecast 和 chat 都会消费这个形态。
 export type NatalChartResponse = {
   planets: PlanetPosition[];
   houses: {
     system: 'P';
     cusps: number[];
+    cuspDetails?: HouseCuspDetail[];
     ascendant: number;
     ascendantSign: string;
     midheaven: number;
   };
+  angles?: {
+    ascendant: ZodiacPoint;
+    descendant: ZodiacPoint;
+    midheaven: ZodiacPoint;
+    imumCoeli: ZodiacPoint;
+  };
+  aspects?: NatalAspect[];
+  houseRulers?: HouseRuler[];
+  lunarNodes?: {
+    nodeType: 'true';
+    northNode: LunarNodePosition;
+    southNode: LunarNodePosition;
+  };
+  birthData?: BirthDataSnapshot;
+  chartSettings?: ChartSettings;
   metadata: {
     elementDistribution: Record<ZodiacElement, number>;
     modalityDistribution: Record<ZodiacModality, number>;

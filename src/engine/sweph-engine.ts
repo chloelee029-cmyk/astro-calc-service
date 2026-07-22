@@ -53,6 +53,7 @@ export type RawPlanetPosition = {
 
 export type RawNatalChart = {
   planets: RawPlanetPosition[];
+  trueNode?: RawPlanetPosition;
   houses: number[];
   ascendant: number;
   midheaven: number;
@@ -213,6 +214,29 @@ export function calculateNatalChart(input: {
     };
   });
 
+  let trueNode: RawPlanetPosition | undefined;
+  try {
+    const nodeCode = (sweph.constants as unknown as Record<string, number>).SE_TRUE_NODE;
+    if (typeof nodeCode === 'number') {
+      const nodeResult = sweph.calc_ut(jd, nodeCode, sweph.constants.SEFLG_SWIEPH | sweph.constants.SEFLG_SPEED);
+      const longitude = ((Number(nodeResult.data[0]) % 360) + 360) % 360;
+      const speed = Number(nodeResult.data[3]);
+      const signIndex = Math.floor(longitude / 30) % 12;
+      const degree = longitude - signIndex * 30;
+
+      trueNode = {
+        planet: 'NorthNode',
+        longitude: round(longitude),
+        sign: ZODIAC_SIGNS[signIndex],
+        degree: round(degree),
+        speed: round(speed, 6),
+        retrograde: speed < 0,
+      };
+    }
+  } catch (error) {
+    console.warn('True node calculation failed:', error);
+  }
+
   let houses: number[] = [];
   let ascendant = 0;
   let midheaven = 0;
@@ -234,6 +258,7 @@ export function calculateNatalChart(input: {
 
   const result: RawNatalChart = {
     planets,
+    trueNode,
     houses: houses.map((house) => round(house)),
     ascendant: round(ascendant),
     midheaven: round(midheaven),
