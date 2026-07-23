@@ -58,6 +58,22 @@ export type NatalAspect = {
   interpretationWeight: AspectStrength;
 };
 
+export type AngleName = 'ASC' | 'DSC' | 'MC' | 'IC';
+export type NodeName = 'NorthNode' | 'SouthNode';
+
+export type PointAspect = {
+  body: PlanetName;
+  point: AngleName | NodeName;
+  type: AspectType;
+  exactAngle: number;
+  actualAngle: number;
+  orb: number;
+  applying: boolean;
+  strength: number;
+  category: 'major';
+  interpretationWeight: AspectStrength;
+};
+
 export type HouseCuspDetail = ZodiacPoint & {
   house: number;
   traditionalRuler: PlanetName;
@@ -101,6 +117,35 @@ export type ChartSettings = {
   ephemeris: 'Swiss Ephemeris';
 };
 
+export type ChartRuler = {
+  planet: PlanetName;
+  source: string;
+  placement: {
+    sign: string;
+    house: number;
+    retrograde: boolean;
+  } | null;
+  aspects: NatalAspect[];
+  angleAspects: PointAspect[];
+};
+
+export type DominantItem = {
+  name: string;
+  count: number;
+};
+
+export type NatalDominants = {
+  elements: DominantItem[];
+  modalities: DominantItem[];
+  signs: DominantItem[];
+  houses: DominantItem[];
+  angularPlanets: Array<{
+    planet: PlanetName;
+    sign: string;
+    house: number;
+  }>;
+};
+
 // 本命盘结构：主站 my-chart、forecast 和 chat 都会消费这个形态。
 export type NatalChartResponse = {
   planets: PlanetPosition[];
@@ -119,6 +164,10 @@ export type NatalChartResponse = {
     imumCoeli: ZodiacPoint;
   };
   aspects?: NatalAspect[];
+  angleAspects?: PointAspect[];
+  nodeAspects?: PointAspect[];
+  chartRuler?: ChartRuler;
+  dominants?: NatalDominants;
   houseRulers?: HouseRuler[];
   lunarNodes?: {
     nodeType: 'true';

@@ -98,6 +98,16 @@ function isApplying(body1, body2, exactAngle, currentOrb) {
     const nextOrb = Math.abs(nextAngle - exactAngle);
     return nextOrb < currentOrb;
 }
+function detectMajorAspect(actualAngle, orbLimit) {
+    let best = null;
+    for (const [type, exactAngle] of Object.entries(constants_1.ASPECT_ANGLES)) {
+        const orb = Math.abs(actualAngle - exactAngle);
+        if (orb <= orbLimit && (!best || orb < best.orb)) {
+            best = { type: type, exactAngle, orb };
+        }
+    }
+    return best;
+}
 function buildNatalAspects(planets) {
     const aspects = [];
     for (let i = 0; i < planets.length; i += 1) {
@@ -106,13 +116,7 @@ function buildNatalAspects(planets) {
             const body2 = planets[j];
             const actualAngle = (0, math_1.angleDistance)(body1.longitude, body2.longitude);
             const orbLimit = aspectOrbLimit(body1.planet, body2.planet);
-            let best = null;
-            for (const [type, exactAngle] of Object.entries(constants_1.ASPECT_ANGLES)) {
-                const orb = Math.abs(actualAngle - exactAngle);
-                if (orb <= orbLimit && (!best || orb < best.orb)) {
-                    best = { type: type, exactAngle, orb };
-                }
-            }
+            const best = detectMajorAspect(actualAngle, orbLimit);
             if (!best)
                 continue;
             const strength = (0, math_1.round)(Math.max(0, 1 - best.orb / orbLimit), 3);
@@ -131,6 +135,77 @@ function buildNatalAspects(planets) {
         }
     }
     return aspects.sort((a, b) => b.strength - a.strength || a.orb - b.orb);
+}
+function buildPointAspects(planets, points) {
+    const aspects = [];
+    for (const planet of planets) {
+        for (const point of points) {
+            const actualAngle = (0, math_1.angleDistance)(planet.longitude, point.longitude);
+            const orbLimit = PLANET_ORBS[planet.planet] || constants_1.ASPECT_ORB_LIMIT;
+            const best = detectMajorAspect(actualAngle, orbLimit);
+            if (!best)
+                continue;
+            const strength = (0, math_1.round)(Math.max(0, 1 - best.orb / orbLimit), 3);
+            const nextAngle = (0, math_1.angleDistance)(planet.longitude + planet.speed, point.longitude + (point.speed || 0));
+            const nextOrb = Math.abs(nextAngle - best.exactAngle);
+            aspects.push({
+                body: planet.planet,
+                point: point.name,
+                type: best.type,
+                exactAngle: best.exactAngle,
+                actualAngle: (0, math_1.round)(actualAngle, 3),
+                orb: (0, math_1.round)(best.orb, 3),
+                applying: nextOrb < best.orb,
+                strength,
+                category: 'major',
+                interpretationWeight: interpretationWeight(strength, best.orb),
+            });
+        }
+    }
+    return aspects.sort((a, b) => b.strength - a.strength || a.orb - b.orb);
+}
+function buildChartRuler(ascendant, planets, aspects, angleAspects) {
+    const ruler = (0, helpers_1.rulerBySign)(ascendant.sign);
+    const placement = planets.find((planet) => planet.planet === ruler) || null;
+    return {
+        planet: ruler,
+        source: `Ascendant in ${ascendant.sign}`,
+        placement: placement
+            ? {
+                sign: placement.sign,
+                house: placement.house,
+                retrograde: placement.retrograde,
+            }
+            : null,
+        aspects: aspects.filter((aspect) => aspect.body1 === ruler || aspect.body2 === ruler),
+        angleAspects: angleAspects.filter((aspect) => aspect.body === ruler),
+    };
+}
+function countItems(values) {
+    const counts = new Map();
+    values.forEach((value) => counts.set(value, (counts.get(value) || 0) + 1));
+    return Array.from(counts.entries())
+        .map(([name, count]) => ({ name, count }))
+        .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+}
+function buildDominants(planets, elementDistribution, modalityDistribution) {
+    return {
+        elements: Object.entries(elementDistribution)
+            .map(([name, count]) => ({ name, count }))
+            .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name)),
+        modalities: Object.entries(modalityDistribution)
+            .map(([name, count]) => ({ name, count }))
+            .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name)),
+        signs: countItems(planets.map((planet) => planet.sign)),
+        houses: countItems(planets.map((planet) => String(planet.house))),
+        angularPlanets: planets
+            .filter((planet) => [1, 4, 7, 10].includes(planet.house))
+            .map((planet) => ({
+            planet: planet.planet,
+            sign: planet.sign,
+            house: planet.house,
+        })),
+    };
 }
 function formatLocalBirthData(input) {
     const birthDate = new Date(input.birthTimeISO);
@@ -227,6 +302,25 @@ function buildNatalChartResponse(input) {
     const imumCoeli = (0, math_1.normalizeAngle)(midheaven + 180);
     const cuspDetails = buildCuspDetails(cusps);
     const lunarNodes = buildLunarNode(raw.trueNode, cusps, ascendant);
+    const angles = {
+        ascendant: zodiacPoint(ascendant),
+        descendant: zodiacPoint(descendant),
+        midheaven: zodiacPoint(midheaven),
+        imumCoeli: zodiacPoint(imumCoeli),
+    };
+    const aspects = buildNatalAspects(planets);
+    const angleAspects = buildPointAspects(planets, [
+        { name: 'ASC', longitude: angles.ascendant.longitude },
+        { name: 'DSC', longitude: angles.descendant.longitude },
+        { name: 'MC', longitude: angles.midheaven.longitude },
+        { name: 'IC', longitude: angles.imumCoeli.longitude },
+    ]);
+    const nodeAspects = lunarNodes
+        ? buildPointAspects(planets, [
+            { name: 'NorthNode', longitude: lunarNodes.northNode.longitude, speed: raw.trueNode?.speed },
+            { name: 'SouthNode', longitude: lunarNodes.southNode.longitude, speed: raw.trueNode?.speed },
+        ])
+        : [];
     return {
         planets,
         houses: {
@@ -237,13 +331,12 @@ function buildNatalChartResponse(input) {
             ascendantSign: (0, helpers_1.signFromLongitude)(ascendant),
             midheaven,
         },
-        angles: {
-            ascendant: zodiacPoint(ascendant),
-            descendant: zodiacPoint(descendant),
-            midheaven: zodiacPoint(midheaven),
-            imumCoeli: zodiacPoint(imumCoeli),
-        },
-        aspects: buildNatalAspects(planets),
+        angles,
+        aspects,
+        angleAspects,
+        nodeAspects,
+        chartRuler: buildChartRuler(angles.ascendant, planets, aspects, angleAspects),
+        dominants: buildDominants(planets, elementDistribution, modalityDistribution),
         houseRulers: buildHouseRulers(cuspDetails, planets),
         ...(lunarNodes ? { lunarNodes: { nodeType: 'true', ...lunarNodes } } : {}),
         birthData: formatLocalBirthData(input),
