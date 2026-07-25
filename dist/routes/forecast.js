@@ -72,5 +72,29 @@ function createForecastRoutes(validateApiKey) {
             return c.json({ error: 'Internal server error' }, 500);
         }
     });
+    router.post('/api/v1/annual-forecast', async (c) => {
+        if (!(0, utils_1.requireAuth)(validateApiKey, c)) {
+            return c.json({ error: 'Unauthorized' }, 401);
+        }
+        try {
+            const rawBody = await c.req.json();
+            const input = (0, validation_1.parseCalcInput)(rawBody);
+            if (!input) {
+                return c.json({ error: 'Missing required parameters' }, 400);
+            }
+            const body = (rawBody && typeof rawBody === 'object' ? rawBody : {});
+            const startInput = typeof body.startDate === 'string' && body.startDate
+                ? body.startDate
+                : typeof body.anchorDate === 'string' && body.anchorDate
+                    ? body.anchorDate
+                    : undefined;
+            const anchorDate = startInput ? new Date(`${startInput}T12:00:00.000Z`) : new Date();
+            return c.json((0, forecast_1.buildAnnualForecastResponse)(input, anchorDate));
+        }
+        catch (error) {
+            console.error('Annual forecast error:', error);
+            return c.json({ error: 'Internal server error' }, 500);
+        }
+    });
     return router;
 }

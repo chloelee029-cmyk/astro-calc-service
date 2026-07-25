@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  buildAnnualForecastResponse,
   buildDailyForInput,
   buildWeeklyForecastResponse,
 } from './forecast';
@@ -32,6 +33,36 @@ test('weekly forecast scans each day in the week', () => {
   assert.equal(forecast.data.period, 'weekly');
   assert.equal(forecast.data.planetary_weather?.length, 7);
   assert.ok(forecast.data.globalContext?.dateRange.includes('~'));
+});
+
+test('annual forecast returns structured event graph for AI report evidence', () => {
+  const forecast = buildAnnualForecastResponse(input, new Date('2026-07-25T12:00:00.000Z'));
+
+  assert.equal(forecast.status, 'success');
+  assert.equal(forecast.data.forecastPeriod.startDate, '2026-07-25');
+  assert.equal(forecast.data.forecastPeriod.endExclusive, '2027-07-25');
+  assert.equal(forecast.data.forecastPeriod.periodType, 'rolling_12_months');
+  assert.ok(Array.isArray(forecast.data.transitAspects));
+  assert.ok(Array.isArray(forecast.data.transitHousePlacements));
+  assert.ok(Array.isArray(forecast.data.yearlyThemes));
+  assert.ok(Array.isArray(forecast.data.monthlyTimeline));
+  assert.ok(Array.isArray(forecast.data.keyDates));
+  assert.equal(forecast.data.monthlyTimeline.length, 12);
+  assert.ok(forecast.data.calculationMeta);
+
+  const aspect = forecast.data.transitAspects[0];
+  if (aspect) {
+    assert.ok(aspect.id.startsWith('ta_'));
+    assert.ok(Array.isArray(aspect.passes));
+    assert.ok(aspect.activeWindow.endExclusive);
+    assert.equal(typeof aspect.priority, 'number');
+  }
+
+  const placement = forecast.data.transitHousePlacements[0];
+  if (placement) {
+    assert.ok(placement.id.startsWith('hp_'));
+    assert.ok(Array.isArray(placement.intervals));
+  }
 });
 
 test('planetary positions endpoint payload includes calculation metadata', () => {

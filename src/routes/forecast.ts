@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import {
+  buildAnnualForecastResponse,
   buildDailyForInput,
   buildMonthlyForecastResponse,
   buildWeeklyForecastResponse,
@@ -83,6 +84,34 @@ export function createForecastRoutes(validateApiKey: (authHeader: string | undef
       return c.json(buildMonthlyForecastResponse(input, anchorDate));
     } catch (error) {
       console.error('Monthly forecast error:', error);
+      return c.json({ error: 'Internal server error' }, 500);
+    }
+  });
+
+  router.post('/api/v1/annual-forecast', async (c) => {
+    if (!requireAuth(validateApiKey, c)) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    try {
+      const rawBody = await c.req.json();
+      const input = parseCalcInput(rawBody);
+      if (!input) {
+        return c.json({ error: 'Missing required parameters' }, 400);
+      }
+
+      const body = (rawBody && typeof rawBody === 'object' ? rawBody : {}) as Record<string, unknown>;
+      const startInput =
+        typeof body.startDate === 'string' && body.startDate
+          ? body.startDate
+          : typeof body.anchorDate === 'string' && body.anchorDate
+            ? body.anchorDate
+            : undefined;
+      const anchorDate = startInput ? new Date(`${startInput}T12:00:00.000Z`) : new Date();
+
+      return c.json(buildAnnualForecastResponse(input, anchorDate));
+    } catch (error) {
+      console.error('Annual forecast error:', error);
       return c.json({ error: 'Internal server error' }, 500);
     }
   });

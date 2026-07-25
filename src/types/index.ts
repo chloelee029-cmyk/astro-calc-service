@@ -361,6 +361,141 @@ export type V3MonthlyForecastResponse = {
   } & ForecastDataEnhancements;
 };
 
+export type ForecastArea =
+  | 'career'
+  | 'relationships'
+  | 'wealth'
+  | 'home_family'
+  | 'learning'
+  | 'personal_growth'
+  | 'creativity'
+  | 'communication'
+  | 'emotional_wellbeing';
+
+export type ForecastWindow = {
+  startDate: string;
+  endExclusive: string;
+};
+
+export type AnnualTransitAspect = {
+  id: string;
+  type: 'transit_aspect';
+  transitingBody: PlanetName;
+  natalTarget: {
+    type: 'planet' | 'angle';
+    name: PlanetName | AngleName;
+  };
+  aspect: AspectType;
+  exactAngle: number;
+  orbLimit: number;
+  minimumOrb: number;
+  priority: number;
+  category: string;
+  area: ForecastArea;
+  interpretationRisk: 'low' | 'medium' | 'sensitive';
+  activeWindow: ForecastWindow;
+  passes: Array<{
+    passNumber: number;
+    exactAt: string;
+    orbAtExact: number;
+    transitRetrograde: boolean;
+    direction: 'direct' | 'retrograde';
+    phaseBeforeExact: 'applying';
+    phaseAfterExact: 'separating';
+  }>;
+  repeatCount: number;
+  peakDate: string;
+};
+
+export type AnnualTransitHousePlacement = {
+  id: string;
+  type: 'transit_house_placement';
+  transitingBody: PlanetName;
+  natalHouse: number;
+  lifeArea: string;
+  intervals: ForecastWindow[];
+  crossings: Array<{
+    date: string;
+    fromHouse: number;
+    toHouse: number;
+    direction: 'direct' | 'retrograde';
+  }>;
+};
+
+export type AnnualTheme = {
+  themeId: string;
+  titleKey: string;
+  area: ForecastArea;
+  priority: number;
+  evidenceIds: string[];
+  activeWindows: ForecastWindow[];
+};
+
+export type AnnualMonthlyTimeline = {
+  month: string;
+  mainThemeKey: string;
+  focusAreas: ForecastArea[];
+  keyTransitIds: string[];
+  guidanceType: 'action' | 'reflection' | 'integration' | 'planning';
+  categoryScores: Record<'career' | 'relationships' | 'wealth' | 'personalGrowth' | 'pressure', number>;
+};
+
+export type AnnualKeyDate = {
+  date: string;
+  labelKey: string;
+  area: ForecastArea;
+  intensity: number;
+  eventType: 'exact_aspect' | 'house_crossing';
+  eventIds: string[];
+};
+
+export type AnnualOpportunityWindow = {
+  id: string;
+  startDate: string;
+  endExclusive: string;
+  area: ForecastArea;
+  reasonKey: string;
+  suggestedUses: string[];
+  supportingEventIds: string[];
+  confidence: number;
+};
+
+export type AnnualForecastResponse = {
+  status: 'success';
+  data: {
+    forecastPeriod: {
+      startDate: string;
+      endExclusive: string;
+      timezone: string;
+      periodType: 'rolling_12_months';
+    };
+    chartSettings: ChartSettings;
+    transitAspects: AnnualTransitAspect[];
+    transitHousePlacements: AnnualTransitHousePlacement[];
+    yearlyThemes: AnnualTheme[];
+    monthlyTimeline: AnnualMonthlyTimeline[];
+    keyDates: AnnualKeyDate[];
+    growthWindows: AnnualOpportunityWindow[];
+    cautionWindows: AnnualOpportunityWindow[];
+    aiEvidenceSummary: {
+      topThemeIds: string[];
+      strongestEventId?: string;
+      mostActiveHouses: Array<{ house: number; score: number }>;
+      dominantAreas: Array<{ area: ForecastArea; score: number }>;
+      sensitiveTopics: string[];
+    };
+    calculationMeta: {
+      engine: 'Swiss Ephemeris';
+      rulesVersion: string;
+      orbProfileVersion: string;
+      scoringVersion: string;
+      calculatedAt: string;
+      precision: 'daily_noon_sampling_v1';
+      ephemeris?: CalculationMeta;
+    };
+  };
+};
+
 export type WeeklyForecastResponse = V3WeeklyForecastResponse;
 export type MonthlyForecastResponse = V3MonthlyForecastResponse;
 

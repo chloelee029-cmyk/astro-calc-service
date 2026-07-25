@@ -29,6 +29,32 @@ const input = {
     strict_1.default.equal(forecast.data.planetary_weather?.length, 7);
     strict_1.default.ok(forecast.data.globalContext?.dateRange.includes('~'));
 });
+(0, node_test_1.default)('annual forecast returns structured event graph for AI report evidence', () => {
+    const forecast = (0, forecast_1.buildAnnualForecastResponse)(input, new Date('2026-07-25T12:00:00.000Z'));
+    strict_1.default.equal(forecast.status, 'success');
+    strict_1.default.equal(forecast.data.forecastPeriod.startDate, '2026-07-25');
+    strict_1.default.equal(forecast.data.forecastPeriod.endExclusive, '2027-07-25');
+    strict_1.default.equal(forecast.data.forecastPeriod.periodType, 'rolling_12_months');
+    strict_1.default.ok(Array.isArray(forecast.data.transitAspects));
+    strict_1.default.ok(Array.isArray(forecast.data.transitHousePlacements));
+    strict_1.default.ok(Array.isArray(forecast.data.yearlyThemes));
+    strict_1.default.ok(Array.isArray(forecast.data.monthlyTimeline));
+    strict_1.default.ok(Array.isArray(forecast.data.keyDates));
+    strict_1.default.equal(forecast.data.monthlyTimeline.length, 12);
+    strict_1.default.ok(forecast.data.calculationMeta);
+    const aspect = forecast.data.transitAspects[0];
+    if (aspect) {
+        strict_1.default.ok(aspect.id.startsWith('ta_'));
+        strict_1.default.ok(Array.isArray(aspect.passes));
+        strict_1.default.ok(aspect.activeWindow.endExclusive);
+        strict_1.default.equal(typeof aspect.priority, 'number');
+    }
+    const placement = forecast.data.transitHousePlacements[0];
+    if (placement) {
+        strict_1.default.ok(placement.id.startsWith('hp_'));
+        strict_1.default.ok(Array.isArray(placement.intervals));
+    }
+});
 (0, node_test_1.default)('planetary positions endpoint payload includes calculation metadata', () => {
     const positions = (0, ephemeris_1.buildPlanetaryPositionsForInput)(input, new Date('2026-07-03T12:00:00.000Z'));
     strict_1.default.equal(positions.date, '2026-07-03');
