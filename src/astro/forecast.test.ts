@@ -49,6 +49,24 @@ test('annual forecast returns structured event graph for AI report evidence', ()
   assert.ok(Array.isArray(forecast.data.keyDates));
   assert.equal(forecast.data.monthlyTimeline.length, 12);
   assert.ok(forecast.data.calculationMeta);
+  assert.equal(forecast.data.calculationMeta.scoringVersion, 'forecast-score-v1.2');
+  assert.equal(forecast.data.calculationMeta.sampling, 'daily');
+  assert.equal(forecast.data.monthlyTimeline.every((month) => month.keyTransitIds.length > 0), true);
+  assert.ok(new Set(forecast.data.yearlyThemes.map((theme) => theme.priority)).size > 1);
+  assert.ok(forecast.data.growthWindows.length >= 5);
+  assert.ok(forecast.data.cautionWindows.length <= 6);
+  assert.ok(forecast.data.aiEvidenceSummary.topTransitIds.length > 0);
+  assert.ok(forecast.data.aiEvidenceSummary.majorHouseChanges.length > 0);
+  assert.equal(typeof forecast.data.aiEvidenceSummary.overallIntensity, 'number');
+
+  const keyDateLabels = new Set<string>();
+  for (const keyDate of forecast.data.keyDates) {
+    const key = `${keyDate.date}|${keyDate.labelKey}`;
+    assert.equal(keyDateLabels.has(key), false);
+    keyDateLabels.add(key);
+    assert.equal(typeof keyDate.eventScore, 'number');
+    assert.ok(keyDate.importance >= 1 && keyDate.importance <= 5);
+  }
 
   const aspect = forecast.data.transitAspects[0];
   if (aspect) {
@@ -56,6 +74,10 @@ test('annual forecast returns structured event graph for AI report evidence', ()
     assert.ok(Array.isArray(aspect.passes));
     assert.ok(aspect.activeWindow.endExclusive);
     assert.equal(typeof aspect.priority, 'number');
+    assert.equal(typeof aspect.eventScore, 'number');
+    assert.ok(aspect.priority < 100);
+    assert.ok(Array.isArray(aspect.categories));
+    assert.equal(typeof aspect.interpretationRisk, 'number');
   }
 
   const placement = forecast.data.transitHousePlacements[0];

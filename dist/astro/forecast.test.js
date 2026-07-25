@@ -42,12 +42,33 @@ const input = {
     strict_1.default.ok(Array.isArray(forecast.data.keyDates));
     strict_1.default.equal(forecast.data.monthlyTimeline.length, 12);
     strict_1.default.ok(forecast.data.calculationMeta);
+    strict_1.default.equal(forecast.data.calculationMeta.scoringVersion, 'forecast-score-v1.2');
+    strict_1.default.equal(forecast.data.calculationMeta.sampling, 'daily');
+    strict_1.default.equal(forecast.data.monthlyTimeline.every((month) => month.keyTransitIds.length > 0), true);
+    strict_1.default.ok(new Set(forecast.data.yearlyThemes.map((theme) => theme.priority)).size > 1);
+    strict_1.default.ok(forecast.data.growthWindows.length >= 5);
+    strict_1.default.ok(forecast.data.cautionWindows.length <= 6);
+    strict_1.default.ok(forecast.data.aiEvidenceSummary.topTransitIds.length > 0);
+    strict_1.default.ok(forecast.data.aiEvidenceSummary.majorHouseChanges.length > 0);
+    strict_1.default.equal(typeof forecast.data.aiEvidenceSummary.overallIntensity, 'number');
+    const keyDateLabels = new Set();
+    for (const keyDate of forecast.data.keyDates) {
+        const key = `${keyDate.date}|${keyDate.labelKey}`;
+        strict_1.default.equal(keyDateLabels.has(key), false);
+        keyDateLabels.add(key);
+        strict_1.default.equal(typeof keyDate.eventScore, 'number');
+        strict_1.default.ok(keyDate.importance >= 1 && keyDate.importance <= 5);
+    }
     const aspect = forecast.data.transitAspects[0];
     if (aspect) {
         strict_1.default.ok(aspect.id.startsWith('ta_'));
         strict_1.default.ok(Array.isArray(aspect.passes));
         strict_1.default.ok(aspect.activeWindow.endExclusive);
         strict_1.default.equal(typeof aspect.priority, 'number');
+        strict_1.default.equal(typeof aspect.eventScore, 'number');
+        strict_1.default.ok(aspect.priority < 100);
+        strict_1.default.ok(Array.isArray(aspect.categories));
+        strict_1.default.equal(typeof aspect.interpretationRisk, 'number');
     }
     const placement = forecast.data.transitHousePlacements[0];
     if (placement) {

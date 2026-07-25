@@ -390,9 +390,11 @@ export type AnnualTransitAspect = {
   orbLimit: number;
   minimumOrb: number;
   priority: number;
+  eventScore: number;
   category: string;
+  categories: ForecastArea[];
   area: ForecastArea;
-  interpretationRisk: 'low' | 'medium' | 'sensitive';
+  interpretationRisk: 1 | 2 | 3;
   activeWindow: ForecastWindow;
   passes: Array<{
     passNumber: number;
@@ -445,6 +447,8 @@ export type AnnualKeyDate = {
   labelKey: string;
   area: ForecastArea;
   intensity: number;
+  eventScore: number;
+  importance: 1 | 2 | 3 | 4 | 5;
   eventType: 'exact_aspect' | 'house_crossing';
   eventIds: string[];
 };
@@ -479,6 +483,18 @@ export type AnnualForecastResponse = {
     cautionWindows: AnnualOpportunityWindow[];
     aiEvidenceSummary: {
       topThemeIds: string[];
+      topTransitIds: string[];
+      majorHouseChanges: Array<{
+        date: string;
+        transitIds: string[];
+        transitingBody: PlanetName;
+        fromHouse: number;
+        toHouse: number;
+        area: ForecastArea;
+        importance: 1 | 2 | 3 | 4 | 5;
+      }>;
+      overallYearTone: 'growth' | 'pressure' | 'mixed' | 'integration';
+      overallIntensity: number;
       strongestEventId?: string;
       mostActiveHouses: Array<{ house: number; score: number }>;
       dominantAreas: Array<{ area: ForecastArea; score: number }>;
@@ -490,6 +506,7 @@ export type AnnualForecastResponse = {
       orbProfileVersion: string;
       scoringVersion: string;
       calculatedAt: string;
+      sampling: 'daily' | 'hourly' | 'adaptive' | 'binary_search';
       precision: 'daily_noon_sampling_v1';
       ephemeris?: CalculationMeta;
     };
