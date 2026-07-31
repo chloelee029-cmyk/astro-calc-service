@@ -15,7 +15,6 @@ import { ELEMENT_ARCHETYPES } from '../constants';
 type SynastryAspect = SynastryResponse['crossAspects'][number];
 
 const HARD_ASPECTS = new Set<AspectType>(['Square', 'Opposition']);
-const HIGH_PRESSURE_PLANETS = new Set<PlanetName>(['Mars', 'Saturn', 'Neptune', 'Pluto']);
 
 function aspectTouches(aspect: SynastryAspect, planets: readonly PlanetName[]): boolean {
   return planets.includes(aspect.from) || planets.includes(aspect.to);
@@ -25,31 +24,18 @@ function isHardAspect(aspect: SynastryAspect): boolean {
   return HARD_ASPECTS.has(aspect.type);
 }
 
-function challengePenalty(aspects: SynastryAspect[]): number {
-  const hardAspects = aspects.filter(isHardAspect);
-  let penalty = 0;
+function challengeWeight(aspect: SynastryAspect): number {
+  if (!isHardAspect(aspect)) return 0;
 
-  for (const aspect of hardAspects) {
-    const pressure = Math.abs(aspect.score);
-    if (pressure >= 70) penalty += 7;
-    else if (pressure >= 60) penalty += 6;
-    else if (pressure >= 50) penalty += 4;
-    else if (pressure >= 35) penalty += 2;
-  }
-
-  const highPressureCount = hardAspects.filter(
-    (aspect) =>
-      Math.abs(aspect.score) >= 35 &&
-      (HIGH_PRESSURE_PLANETS.has(aspect.from) || HIGH_PRESSURE_PLANETS.has(aspect.to)),
-  ).length;
-
-  if (highPressureCount >= 3) penalty += 5;
-  else if (highPressureCount >= 2) penalty += 3;
-
-  return Math.min(24, penalty);
+  const pressure = Math.abs(aspect.score);
+  if (pressure >= 70) return 6;
+  if (pressure >= 60) return 5;
+  if (pressure >= 50) return 4;
+  if (pressure >= 35) return 2;
+  return 0;
 }
 
-function challengeCap(allAspects: SynastryAspect[]): number {
+function globalChallengeReserve(allAspects: SynastryAspect[]): number {
   const strongHardCount = allAspects.filter(
     (aspect) => isHardAspect(aspect) && Math.abs(aspect.score) >= 60,
   ).length;
@@ -57,10 +43,21 @@ function challengeCap(allAspects: SynastryAspect[]): number {
     (aspect) => isHardAspect(aspect) && Math.abs(aspect.score) >= 35,
   ).length;
 
-  if (strongHardCount >= 3) return 88;
-  if (strongHardCount >= 2 || notableHardCount >= 6) return 92;
-  if (strongHardCount >= 1 || notableHardCount >= 4) return 95;
-  return 100;
+  const intensityReserve = strongHardCount >= 3 ? 8 : strongHardCount >= 2 ? 5 : strongHardCount >= 1 ? 2 : 0;
+  const breadthReserve = notableHardCount >= 6 ? 5 : notableHardCount >= 4 ? 3 : 0;
+  return Math.max(intensityReserve, breadthReserve);
+}
+
+function dimensionChallengeCap(
+  allAspects: SynastryAspect[],
+  relevantAspects: SynastryAspect[],
+): number {
+  const dimensionReserve = Math.min(
+    12,
+    Math.round(relevantAspects.reduce((sum, aspect) => sum + challengeWeight(aspect), 0) / 2),
+  );
+
+  return Math.max(80, 100 - globalChallengeReserve(allAspects) - dimensionReserve);
 }
 
 function calculateDimensionScore(
@@ -69,8 +66,7 @@ function calculateDimensionScore(
 ): number {
   const relevant = allAspects.filter((aspect) => aspectTouches(aspect, focusPlanets));
   const rawScore = 50 + Math.round(relevant.reduce((acc, aspect) => acc + aspect.score, 0) / 8);
-  const adjusted = clampScore(rawScore - challengePenalty(relevant));
-  return Math.min(adjusted, challengeCap(allAspects));
+  return Math.min(clampScore(rawScore), dimensionChallengeCap(allAspects, relevant));
 }
 
 export function calculateSynastryScores(crossAspects: SynastryAspect[]): SynastryResponse['scores'] {
