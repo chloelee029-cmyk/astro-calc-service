@@ -1,11 +1,7 @@
 "use strict";
-/**
- * ============================================
- * 合盘分析逻辑
- * ============================================
- * 提供合盘分析和灵魂伴侣信号的计算功能
- */
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.calculateSynastryScores = calculateSynastryScores;
+exports.determineSynastryTheme = determineSynastryTheme;
 exports.buildSynastryResponse = buildSynastryResponse;
 exports.buildSoulmateSignalsResponse = buildSoulmateSignalsResponse;
 exports.calculateSynastry = calculateSynastry;
@@ -15,50 +11,85 @@ const aspects_1 = require("./aspects");
 const helpers_1 = require("./helpers");
 const math_1 = require("../utils/math");
 const constants_1 = require("../constants");
-/**
- * 构建合盘分析响应
- * @param a - 人物A的计算参数
- * @param b - 人物B的计算参数
- * @returns 合盘分析响应
- */
+const HARD_ASPECTS = new Set(['Square', 'Opposition']);
+const HIGH_PRESSURE_PLANETS = new Set(['Mars', 'Saturn', 'Neptune', 'Pluto']);
+function aspectTouches(aspect, planets) {
+    return planets.includes(aspect.from) || planets.includes(aspect.to);
+}
+function isHardAspect(aspect) {
+    return HARD_ASPECTS.has(aspect.type);
+}
+function challengePenalty(aspects) {
+    const hardAspects = aspects.filter(isHardAspect);
+    let penalty = 0;
+    for (const aspect of hardAspects) {
+        const pressure = Math.abs(aspect.score);
+        if (pressure >= 70)
+            penalty += 7;
+        else if (pressure >= 60)
+            penalty += 6;
+        else if (pressure >= 50)
+            penalty += 4;
+        else if (pressure >= 35)
+            penalty += 2;
+    }
+    const highPressureCount = hardAspects.filter((aspect) => Math.abs(aspect.score) >= 35 &&
+        (HIGH_PRESSURE_PLANETS.has(aspect.from) || HIGH_PRESSURE_PLANETS.has(aspect.to))).length;
+    if (highPressureCount >= 3)
+        penalty += 5;
+    else if (highPressureCount >= 2)
+        penalty += 3;
+    return Math.min(24, penalty);
+}
+function challengeCap(allAspects) {
+    const strongHardCount = allAspects.filter((aspect) => isHardAspect(aspect) && Math.abs(aspect.score) >= 60).length;
+    const notableHardCount = allAspects.filter((aspect) => isHardAspect(aspect) && Math.abs(aspect.score) >= 35).length;
+    if (strongHardCount >= 3)
+        return 88;
+    if (strongHardCount >= 2 || notableHardCount >= 6)
+        return 92;
+    if (strongHardCount >= 1 || notableHardCount >= 4)
+        return 95;
+    return 100;
+}
+function calculateDimensionScore(allAspects, focusPlanets) {
+    const relevant = allAspects.filter((aspect) => aspectTouches(aspect, focusPlanets));
+    const rawScore = 50 + Math.round(relevant.reduce((acc, aspect) => acc + aspect.score, 0) / 8);
+    const adjusted = (0, math_1.clampScore)(rawScore - challengePenalty(relevant));
+    return Math.min(adjusted, challengeCap(allAspects));
+}
+function calculateSynastryScores(crossAspects) {
+    return {
+        emotional: calculateDimensionScore(crossAspects, ['Moon', 'Venus']),
+        communication: calculateDimensionScore(crossAspects, ['Mercury']),
+        longTerm: calculateDimensionScore(crossAspects, ['Saturn', 'Jupiter']),
+    };
+}
+function determineSynastryTheme(scores) {
+    const avg = Math.round((scores.emotional + scores.communication + scores.longTerm) / 3);
+    const weakest = Math.min(scores.emotional, scores.communication, scores.longTerm);
+    if (avg >= 70 && weakest >= 50)
+        return 'Supportive Partnership Arc';
+    if (avg >= 50)
+        return 'Growth Through Communication';
+    return 'Lessons Through Contrast';
+}
 function buildSynastryResponse(a, b) {
     const chartA = (0, natal_1.buildNatalChartResponse)(a);
     const chartB = (0, natal_1.buildNatalChartResponse)(b);
-    // 计算两人所有行星之间的相位
     const crossAspects = (0, aspects_1.detectAllAspects)(chartA.planets, chartB.planets);
-    // 计算情感契合度（月亮、金星相关相位）
-    const emotionalScore = crossAspects
-        .filter((a1) => a1.from === 'Moon' || a1.from === 'Venus' || a1.to === 'Moon' || a1.to === 'Venus')
-        .reduce((acc, a1) => acc + a1.score, 0);
-    const emotional = (0, math_1.clampScore)(50 + Math.round(emotionalScore / 8));
-    // 计算沟通契合度（水星相关相位）
-    const communicationScore = crossAspects
-        .filter((a1) => a1.from === 'Mercury' || a1.to === 'Mercury')
-        .reduce((acc, a1) => acc + a1.score, 0);
-    const communication = (0, math_1.clampScore)(50 + Math.round(communicationScore / 8));
-    // 计算长期关系契合度（土星、木星相关相位）
-    const longTermScore = crossAspects
-        .filter((a1) => a1.from === 'Saturn' || a1.to === 'Saturn' || a1.from === 'Jupiter' || a1.to === 'Jupiter')
-        .reduce((acc, a1) => acc + a1.score, 0);
-    const longTerm = (0, math_1.clampScore)(50 + Math.round(longTermScore / 8));
-    // 根据平均分确定关系主题
-    const avg = Math.round((emotional + communication + longTerm) / 3);
-    const keyTheme = avg >= 65
-        ? 'Supportive Partnership Arc'
-        : avg >= 50
-            ? 'Growth Through Communication'
-            : 'Lessons Through Contrast';
-    // 计算行星落入宫位
+    const scores = calculateSynastryScores(crossAspects);
+    const keyTheme = determineSynastryTheme(scores);
     const aToB = chartA.planets.map((planet) => ({
         planet: planet.planet,
         fallsIntoHouse: chartB.houses.cusps.length === 12
-            ? getHouseIndex(planet.longitude, chartB.houses.cusps, chartB.houses.ascendant)
+            ? getHouseIndex(planet.longitude, chartB.houses.cusps)
             : getHouseByLongitude(planet.longitude, chartB.houses.ascendant),
     }));
     const bToA = chartB.planets.map((planet) => ({
         planet: planet.planet,
         fallsIntoHouse: chartA.houses.cusps.length === 12
-            ? getHouseIndex(planet.longitude, chartA.houses.cusps, chartA.houses.ascendant)
+            ? getHouseIndex(planet.longitude, chartA.houses.cusps)
             : getHouseByLongitude(planet.longitude, chartA.houses.ascendant),
     }));
     return {
@@ -68,35 +99,22 @@ function buildSynastryResponse(a, b) {
             bToA,
         },
         crossAspects,
-        scores: {
-            emotional,
-            communication,
-            longTerm,
-        },
+        scores,
         summary: {
             keyTheme,
         },
     };
 }
-/**
- * 构建灵魂伴侣信号响应
- * @param input - 计算输入参数
- * @returns 灵魂伴侣信号响应
- */
 function buildSoulmateSignalsResponse(input) {
     const natal = (0, natal_1.buildNatalChartResponse)(input);
-    // 计算下降点（上升点对面180度）
     const descendantLongitude = (0, helpers_1.calculateDescendant)(natal.houses.ascendant);
     const descendantSign = (0, helpers_1.signFromLongitude)(descendantLongitude);
     const ruler = (0, helpers_1.rulerBySign)(descendantSign);
-    // 获取关键行星位置
     const venus = natal.planets.find((p) => p.planet === 'Venus');
     const mars = natal.planets.find((p) => p.planet === 'Mars');
     const saturn = natal.planets.find((p) => p.planet === 'Saturn');
     const moon = natal.planets.find((p) => p.planet === 'Moon');
-    // 确定主导元素
     const dominantElement = (Object.entries(natal.metadata.elementDistribution).sort((a1, b1) => b1[1] - a1[1])[0]?.[0] || 'Air');
-    // 根据主导元素确定北交点课题
     const northNodeFocus = dominantElement === 'Water'
         ? 'Emotional trust and boundaries'
         : dominantElement === 'Earth'
@@ -131,31 +149,13 @@ function buildSoulmateSignalsResponse(input) {
         ],
     };
 }
-/**
- * 计算合盘分析
- * @param personA - 人物A的计算参数
- * @param personB - 人物B的计算参数
- * @returns 合盘分析响应
- */
 function calculateSynastry(personA, personB) {
     return buildSynastryResponse(personA, personB);
 }
-/**
- * 计算灵魂伴侣信号
- * @param input - 计算输入参数
- * @returns 灵魂伴侣信号响应
- */
 function calculateSoulmateSignals(input) {
     return buildSoulmateSignalsResponse(input);
 }
-/**
- * 根据宫头位置计算行星所在宫位
- * @param longitude - 行星黄经
- * @param cusps - 宫头位置数组
- * @param ascendant - 上升点
- * @returns 宫位编号（1-12）
- */
-function getHouseIndex(longitude, cusps, ascendant) {
+function getHouseIndex(longitude, cusps) {
     for (let i = 0; i < 12; i += 1) {
         const start = ((cusps[i] % 360) + 360) % 360;
         const end = ((cusps[(i + 1) % 12] % 360) + 360) % 360;
@@ -171,12 +171,6 @@ function getHouseIndex(longitude, cusps, ascendant) {
     }
     return 1;
 }
-/**
- * 使用等宫制计算行星所在宫位
- * @param longitude - 行星黄经
- * @param ascendant - 上升点
- * @returns 宫位编号（1-12）
- */
 function getHouseByLongitude(longitude, ascendant) {
     const relative = ((longitude - ascendant) % 360 + 360) % 360;
     return Math.floor(relative / 30) + 1;
