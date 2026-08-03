@@ -14,6 +14,7 @@ function aspect(from, to, type, score) {
         aspect('Moon', 'Mercury', 'Square', -56),
     ]);
     strict_1.default.equal(scores.emotional, 43);
+    strict_1.default.equal(scores.attraction, 50);
     strict_1.default.equal(scores.communication, 43);
 });
 (0, node_test_1.default)('challenge caps preserve differences between otherwise very high dimensions', () => {
@@ -53,12 +54,13 @@ function aspect(from, to, type, score) {
     ]);
     strict_1.default.deepEqual(scores, {
         emotional: 89,
+        attraction: 52,
         communication: 88,
         longTerm: 84,
     });
 });
 (0, node_test_1.default)('synastry theme requires each dimension to be sufficiently strong', () => {
-    strict_1.default.equal((0, synastry_1.determineSynastryTheme)({ emotional: 43, communication: 83, longTerm: 95 }), 'Growth Through Communication');
-    strict_1.default.equal((0, synastry_1.determineSynastryTheme)({ emotional: 58, communication: 61, longTerm: 64 }), 'Growth Through Communication');
-    strict_1.default.equal((0, synastry_1.determineSynastryTheme)({ emotional: 75, communication: 72, longTerm: 80 }), 'Supportive Partnership Arc');
+    strict_1.default.equal((0, synastry_1.determineSynastryTheme)({ emotional: 43, attraction: 72, communication: 83, longTerm: 95 }), 'Growth Through Communication');
+    strict_1.default.equal((0, synastry_1.determineSynastryTheme)({ emotional: 58, attraction: 70, communication: 61, longTerm: 64 }), 'Growth Through Communication');
+    strict_1.default.equal((0, synastry_1.determineSynastryTheme)({ emotional: 75, attraction: 78, communication: 72, longTerm: 80 }), 'Supportive Partnership Arc');
 });

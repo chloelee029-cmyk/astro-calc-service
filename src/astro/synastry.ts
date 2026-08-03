@@ -72,6 +72,7 @@ function calculateDimensionScore(
 export function calculateSynastryScores(crossAspects: SynastryAspect[]): SynastryResponse['scores'] {
   return {
     emotional: calculateDimensionScore(crossAspects, ['Moon', 'Venus']),
+    attraction: calculateDimensionScore(crossAspects, ['Venus', 'Mars']),
     communication: calculateDimensionScore(crossAspects, ['Mercury']),
     longTerm: calculateDimensionScore(crossAspects, ['Saturn', 'Jupiter']),
   };

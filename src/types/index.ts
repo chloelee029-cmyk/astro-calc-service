@@ -531,6 +531,7 @@ export type SynastryResponse = {
   }>;
   scores: {
     emotional: number;
+    attraction: number;
     communication: number;
     longTerm: number;
   };

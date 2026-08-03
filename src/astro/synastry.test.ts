@@ -15,6 +15,7 @@ test('negative aspects are not deducted twice from a dimension score', () => {
   ]);
 
   assert.equal(scores.emotional, 43);
+  assert.equal(scores.attraction, 50);
   assert.equal(scores.communication, 43);
 });
 
@@ -56,6 +57,7 @@ test('challenge caps preserve differences between otherwise very high dimensions
 
   assert.deepEqual(scores, {
     emotional: 89,
+    attraction: 52,
     communication: 88,
     longTerm: 84,
   });
@@ -63,15 +65,15 @@ test('challenge caps preserve differences between otherwise very high dimensions
 
 test('synastry theme requires each dimension to be sufficiently strong', () => {
   assert.equal(
-    determineSynastryTheme({ emotional: 43, communication: 83, longTerm: 95 }),
+    determineSynastryTheme({ emotional: 43, attraction: 72, communication: 83, longTerm: 95 }),
     'Growth Through Communication',
   );
   assert.equal(
-    determineSynastryTheme({ emotional: 58, communication: 61, longTerm: 64 }),
+    determineSynastryTheme({ emotional: 58, attraction: 70, communication: 61, longTerm: 64 }),
     'Growth Through Communication',
   );
   assert.equal(
-    determineSynastryTheme({ emotional: 75, communication: 72, longTerm: 80 }),
+    determineSynastryTheme({ emotional: 75, attraction: 78, communication: 72, longTerm: 80 }),
     'Supportive Partnership Arc',
   );
 });
