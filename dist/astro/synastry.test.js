@@ -64,3 +64,23 @@ function aspect(from, to, type, score) {
     strict_1.default.equal((0, synastry_1.determineSynastryTheme)({ emotional: 58, attraction: 70, communication: 61, longTerm: 64 }), 'Growth Through Communication');
     strict_1.default.equal((0, synastry_1.determineSynastryTheme)({ emotional: 75, attraction: 78, communication: 72, longTerm: 80 }), 'Supportive Partnership Arc');
 });
+(0, node_test_1.default)('soulmate signals use real chart evidence and honest capability labels', () => {
+    const result = (0, synastry_1.buildSoulmateSignalsResponse)({
+        birthTimeISO: '1989-12-05T19:40:00.000Z',
+        lat: 43.6532,
+        lng: -79.3832,
+        timezone: 'America/Toronto',
+    });
+    strict_1.default.equal(result.schemaVersion, 'soulmate-signals.v2');
+    strict_1.default.equal(result.descendantProfile.archetype, 'Transformative Loyalist');
+    strict_1.default.equal(result.descendantProfile.sign, 'Scorpio');
+    strict_1.default.ok(result.descendantProfile.rulerPlacement);
+    strict_1.default.ok(result.venusPattern.house >= 1 && result.venusPattern.house <= 12);
+    strict_1.default.ok(result.moonPattern.interpretation.includes('Emotional safety'));
+    strict_1.default.ok(result.northNodePattern);
+    strict_1.default.equal(result.junoPattern, null);
+    strict_1.default.ok(result.calculationNotes.some((note) => note.includes('Juno')));
+    strict_1.default.ok(result.evidence.some((item) => item.id === 'north-node'));
+    strict_1.default.equal('northNodeLesson' in result, false);
+    strict_1.default.equal('matchArchetypes' in result, false);
+});

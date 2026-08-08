@@ -541,24 +541,76 @@ export type SynastryResponse = {
 };
 
 export type SoulmateSignalsResponse = {
+  schemaVersion: 'soulmate-signals.v2';
   updatedAt: string;
   descendantProfile: {
     sign: string;
     ruler: PlanetName;
+    rulerPlacement: {
+      sign: string;
+      house: number;
+      retrograde: boolean;
+    } | null;
     archetype: string;
+    interpretation: string;
   };
-  venusMarsPattern: {
-    venusSign: string;
-    marsSign: string;
-    style: string;
+  venusPattern: {
+    sign: string;
+    house: number;
+    retrograde: boolean;
+    interpretation: string;
+    keyAspects: SoulmateAspectEvidence[];
   };
-  northNodeLesson: {
+  marsPattern: {
+    sign: string;
+    house: number;
+    retrograde: boolean;
+    interpretation: string;
+    keyAspects: SoulmateAspectEvidence[];
+  };
+  moonPattern: {
+    sign: string;
+    house: number;
+    retrograde: boolean;
+    interpretation: string;
+    keyAspects: SoulmateAspectEvidence[];
+  };
+  saturnCommitmentPattern: {
+    sign: string;
+    house: number;
+    retrograde: boolean;
+    interpretation: string;
+    keyAspects: SoulmateAspectEvidence[];
+  };
+  northNodePattern: {
+    sign: string;
+    house: number;
+    retrograde: boolean;
     focus: string;
-  };
-  junoPattern: {
-    commitmentStyle: string;
-  };
-  matchArchetypes: string[];
+    keyAspects: Array<{
+      body: PlanetName;
+      type: AspectType;
+      orb: number;
+      applying: boolean;
+      strength: number;
+    }>;
+  } | null;
+  junoPattern: null;
+  relationshipArchetypes: string[];
+  evidence: Array<{
+    id: string;
+    source: string;
+    summary: string;
+  }>;
+  calculationNotes: string[];
+};
+
+export type SoulmateAspectEvidence = {
+  otherBody: PlanetName;
+  type: AspectType;
+  orb: number;
+  applying: boolean;
+  strength: number;
 };
 
 export type CalcInput = {

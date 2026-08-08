@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { SynastryResponse } from '../types';
-import { calculateSynastryScores, determineSynastryTheme } from './synastry';
+import { buildSoulmateSignalsResponse, calculateSynastryScores, determineSynastryTheme } from './synastry';
 
 type Aspect = SynastryResponse['crossAspects'][number];
 
@@ -76,4 +76,26 @@ test('synastry theme requires each dimension to be sufficiently strong', () => {
     determineSynastryTheme({ emotional: 75, attraction: 78, communication: 72, longTerm: 80 }),
     'Supportive Partnership Arc',
   );
+});
+
+test('soulmate signals use real chart evidence and honest capability labels', () => {
+  const result = buildSoulmateSignalsResponse({
+    birthTimeISO: '1989-12-05T19:40:00.000Z',
+    lat: 43.6532,
+    lng: -79.3832,
+    timezone: 'America/Toronto',
+  });
+
+  assert.equal(result.schemaVersion, 'soulmate-signals.v2');
+  assert.equal(result.descendantProfile.archetype, 'Transformative Loyalist');
+  assert.equal(result.descendantProfile.sign, 'Scorpio');
+  assert.ok(result.descendantProfile.rulerPlacement);
+  assert.ok(result.venusPattern.house >= 1 && result.venusPattern.house <= 12);
+  assert.ok(result.moonPattern.interpretation.includes('Emotional safety'));
+  assert.ok(result.northNodePattern);
+  assert.equal(result.junoPattern, null);
+  assert.ok(result.calculationNotes.some((note) => note.includes('Juno')));
+  assert.ok(result.evidence.some((item) => item.id === 'north-node'));
+  assert.equal('northNodeLesson' in result, false);
+  assert.equal('matchArchetypes' in result, false);
 });
